@@ -4,7 +4,6 @@ import os
 import subprocess
 import time
 import webbrowser
-import winreg
 
 import requests
 from PySide6.QtCore import QRunnable, Signal, QObject
@@ -168,16 +167,16 @@ class SearchRunnable(QRunnable):
         self.search_text = search_text
 
     def run(self):
-        try:
-            key_path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ) as key:
-                proxy_enable, _ = winreg.QueryValueEx(key, "ProxyEnable")
-        except Exception:
-            proxy_enable = False
-        if proxy_enable:
-            url = f"https://www.baidu.com/s?wd={self.search_text}"
-        else:
-            url = f"https://cn.bing.com/search?q={self.search_text}"
+        # try:
+        #     key_path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+        #     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ) as key:
+        #         proxy_enable, _ = winreg.QueryValueEx(key, "ProxyEnable")
+        # except Exception:
+        #     proxy_enable = False
+        # if proxy_enable:
+        #     url = f"https://www.baidu.com/s?wd={self.search_text}"
+        # else:
+        url = f"https://cn.bing.com/search?q={self.search_text}"
         webbrowser.open(url)
 
 

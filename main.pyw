@@ -1,7 +1,7 @@
 import sys
 
 import pyperclip
-from PySide6.QtCore import Qt, QThread, QPropertyAnimation, QEasingCurve, QTimer, QThreadPool
+from PySide6.QtCore import Qt, QThread, QPropertyAnimation, QEasingCurve, QTimer
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLineEdit, QListWidget, QListWidgetItem,
                                QFrame)
 

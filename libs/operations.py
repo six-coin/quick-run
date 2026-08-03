@@ -9,10 +9,10 @@ from libs import log
 from libs import runnable
 
 
-def _norm(text: str) -> str:
+def _norm(text):
     result = []
     for ch in text.lower():
-        if 'a' <= ch <= 'z':
+        if 'a' <= ch <= 'z' or '0' <= ch <= '9':
             result.append(ch)
     return "".join(result)
 
@@ -75,6 +75,8 @@ class DirOperation(ExternalOperation):
 
     def validate_search(self, search_text: str) -> bool:
         lower_text = _norm(search_text)
+        if not lower_text:
+            return False
         return any(kw.startswith(lower_text) for kw in self.keywords)
 
     def execute(self, key_pressed):
