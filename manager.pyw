@@ -4,7 +4,7 @@ import uuid
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QListWidgetItem, QStackedWidget, QAbstractItemView,
-                               QCheckBox, QSpinBox, QFileDialog)
+                               QCheckBox, QGroupBox, QFileDialog)
 
 from libs import config
 from libs import log
@@ -60,8 +60,8 @@ class Operation:
         return {
             "display": self.display,
             "type": self.type,
-            "arguments": self.arguments,
-            "keywords": self.keywords
+            "keywords": self.keywords,
+            "arguments": self.arguments
         }
 
     def change_type(self, new_type):
@@ -155,7 +155,7 @@ class MainWindow(standard_ui.MainWindow):
 
         edit_type_combo = standard_ui.ComboBox(self, list(_TYPE_LABELS.values()))
         edit_type_combo.currentIndexChanged.connect(self.on_type_changed)
-        row_type = standard_ui.HorizontalLayout([standard_ui.Label(self, "运行方式"), edit_type_combo])
+        row_type = standard_ui.HorizontalLayout([standard_ui.Label(self, "运行方式"), (edit_type_combo, 1)])
 
         self._arg_widgets = self._build_arg_pages()
 
@@ -163,8 +163,12 @@ class MainWindow(standard_ui.MainWindow):
         edit_keywords.textChanged.connect(lambda text: self.on_field_changed("keywords", text))
         row_keywords = standard_ui.HorizontalLayout([standard_ui.Label(self, "匹配字串"), edit_keywords])
 
+        arg_group = QGroupBox("参数编辑")
+        arg_group_layout = standard_ui.VerticalLayout([self._arg_widgets["stack_widget"]], margin=10, spacing=6)
+        arg_group.setLayout(arg_group_layout)
+
         form_layout = standard_ui.VerticalLayout(
-            [row_display, row_type, self._arg_widgets["stack"], row_keywords], margin=10, spacing=10
+            [row_display, row_type, row_keywords, arg_group, None], margin=10, spacing=10
         )
 
         btn_move_up = standard_ui.Button(self, "上移一个", lambda: self.move_operation(-1))
@@ -196,15 +200,20 @@ class MainWindow(standard_ui.MainWindow):
         self.right_stack = right_stack
 
     def _build_arg_pages(self):
+        from PySide6.QtWidgets import QWidget, QVBoxLayout
         widgets = {}
-        arg_stack = QStackedWidget()
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         for op_type in ("file", "dir", "url", "cmd", "debug"):
             page = self._build_arg_page(op_type)
-            arg_stack.addWidget(page)
+            page.setVisible(False)
+            layout.addWidget(page)
             widgets[op_type] = page
 
-        widgets["stack"] = arg_stack
+        widgets["stack_widget"] = container
         return widgets
 
     def _build_arg_page(self, op_type):
@@ -218,9 +227,9 @@ class MainWindow(standard_ui.MainWindow):
             rows.append(standard_ui.HorizontalLayout([
                 standard_ui.Label(self, "文件路径"), w_path, btn_browse
             ]))
-            w_nowin = QCheckBox("无窗口运行")
+            w_nowin = QCheckBox("启用")
             w_nowin.stateChanged.connect(lambda s: self._on_arg_field("no_window", s == Qt.CheckState.Checked.value))
-            rows.append(standard_ui.HorizontalLayout([standard_ui.Label(self, ""), w_nowin]))
+            rows.append(standard_ui.HorizontalLayout([standard_ui.Label(self, "无窗口运行"), w_nowin, None]))
             page._w_nowin = w_nowin
             page._w_path = w_path
 
@@ -231,14 +240,12 @@ class MainWindow(standard_ui.MainWindow):
             rows.append(standard_ui.HorizontalLayout([
                 standard_ui.Label(self, "文件夹路径"), w_dir, btn_browse
             ]))
-            w_explore = QCheckBox("允许文件夹浏览")
+            w_explore = QCheckBox("启用")
             w_explore.setChecked(True)
             w_explore.stateChanged.connect(lambda s: self._on_dir_explore_changed(s))
-            rows.append(standard_ui.HorizontalLayout([standard_ui.Label(self, ""), w_explore]))
-            w_depth = QSpinBox()
-            w_depth.setRange(0, 5)
-            w_depth.setValue(0)
-            w_depth.valueChanged.connect(lambda v: self._on_arg_field("explore_depth", v))
+            rows.append(standard_ui.HorizontalLayout([standard_ui.Label(self, "允许浏览子文件夹"), w_explore, None]))
+            w_depth = standard_ui.LineEdit(self)
+            w_depth.textChanged.connect(lambda t: self._on_arg_field("explore_depth", t))
             row_depth = standard_ui.HorizontalLayout([standard_ui.Label(self, "探索深度"), w_depth])
             rows.append(row_depth)
             page._w_explore = w_explore
@@ -269,7 +276,7 @@ class MainWindow(standard_ui.MainWindow):
                 "function", "restart" if i == 0 else "close"
             ))
             rows.append(standard_ui.HorizontalLayout([
-                standard_ui.Label(self, "调试功能"), w_func
+                standard_ui.Label(self, "调试功能"), (w_func, 1)
             ]))
             page._w_func = w_func
 
@@ -301,6 +308,12 @@ class MainWindow(standard_ui.MainWindow):
         page._w_depth.setVisible(on)
         page._depth_label.setVisible(on)
 
+    def _show_arg_page(self, op_type):
+        for t, page in self._arg_widgets.items():
+            if t in ("stack_widget",):
+                continue
+            page.setVisible(t == op_type)
+
     def on_type_changed(self, index):
         if self.updating_ui or self.current_index < 0:
             return
@@ -308,7 +321,7 @@ class MainWindow(standard_ui.MainWindow):
         new_type = type_keys[index]
         op = self.data_list[self.current_index]
         op.change_type(new_type)
-        self._arg_widgets["stack"].setCurrentIndex(index)
+        self._show_arg_page(new_type)
         self._sync_arg_ui(op)
         self.dirty = True
 
@@ -325,7 +338,7 @@ class MainWindow(standard_ui.MainWindow):
             page._w_dir.setText(args.get("dir", ""))
             explore = args.get("allow_explore", True)
             page._w_explore.setChecked(explore)
-            page._w_depth.setValue(args.get("explore_depth", 0))
+            page._w_depth.setText(str(args.get("explore_depth", 0)))
             page._w_depth.setVisible(explore)
             page._depth_label.setVisible(explore)
         elif op.type == "url":
@@ -416,6 +429,11 @@ class MainWindow(standard_ui.MainWindow):
             args["path"] = args.get("path", "").strip().strip("\"").replace('/', '\\')
         elif op.type == "dir":
             args["dir"] = args.get("dir", "").strip().strip("\"").replace('/', '\\')
+            try:
+                depth = int(str(args.get("explore_depth", 0)))
+                args["explore_depth"] = max(0, min(depth, 5))
+            except (ValueError, TypeError):
+                args["explore_depth"] = 0
         elif op.type == "url":
             args["url"] = args.get("url", "").strip().replace('\\', '/')
         elif op.type == "cmd":
@@ -465,7 +483,7 @@ class MainWindow(standard_ui.MainWindow):
             self.edit_display.clear()
             self.edit_type_combo.setCurrentIndex(0)
             self.edit_keywords.clear()
-            self._arg_widgets["stack"].setCurrentIndex(0)
+            self._show_arg_page("file")
             self.updating_ui = False
             return
         self.right_stack.setCurrentIndex(1)
@@ -474,7 +492,7 @@ class MainWindow(standard_ui.MainWindow):
         type_keys = list(_TYPE_LABELS.keys())
         type_idx = type_keys.index(operation.type) if operation.type in type_keys else 0
         self.edit_type_combo.setCurrentIndex(type_idx)
-        self._arg_widgets["stack"].setCurrentIndex(type_idx)
+        self._show_arg_page(operation.type)
         self._sync_arg_ui(operation)
         self.edit_keywords.setText(operation.keywords)
         fmt_name = operation.display if operation.display else "未命名操作"

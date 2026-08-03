@@ -7,10 +7,10 @@ _MAX_DIR_ITEMS = 100
 _MAX_EXPLORE_DEPTH = 5
 
 
-def _norm(text: str) -> str:
+def _norm(text):
     result = []
     for ch in text.lower():
-        if 'a' <= ch <= 'z':
+        if 'a' <= ch <= 'z' or '0' <= ch <= '9':
             result.append(ch)
     return "".join(result)
 

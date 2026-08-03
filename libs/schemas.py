@@ -27,45 +27,45 @@ operations_schema = {
         {
             "display": "重启程序",
             "type": "debug",
-            "arguments": {"function": "restart"},
-            "keywords": "sys:restart|restart"
+            "keywords": "sys:restart|restart",
+            "arguments": {"function": "restart"}
         },
         {
             "display": "关闭程序",
             "type": "debug",
-            "arguments": {"function": "close"},
-            "keywords": "sys:close|close"
+            "keywords": "sys:close|close",
+            "arguments": {"function": "close"}
         },
         {
             "display": "操作管理与帮助",
             "type": "file",
-            "arguments": {"path": "manager.pyw", "no_window": False},
-            "keywords": "sys:manager|manager|sys:help|help"
+            "keywords": "sys:manager|manager|sys:help|help",
+            "arguments": {"path": "manager.pyw", "no_window": False}
         },
         {
             "display": "打开程序文件夹",
             "type": "dir",
-            "arguments": {"dir": "E:\\Play\\Utilities\\Fast Run"},
-            "keywords": "sys:folder|folder"
+            "keywords": "sys:folder|folder",
+            "arguments": {"dir": "E:\\Play\\Utilities\\Fast Run"}
         },
         {
             "display": "打开启动文件夹",
             "type": "dir",
-            "arguments": {"dir": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"},
-            "keywords": "sys:startup|startup"
+            "keywords": "sys:startup|startup",
+            "arguments": {"dir": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"}
         },
         {
             "display": "调试：运行开机启动文件",
             "type": "file",
+            "keywords": "debug:startup_file",
             "arguments": {"path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\run.pyw",
-                          "no_window": False},
-            "keywords": "debug:startup_file"
+                          "no_window": False}
         },
         {
             "display": "调试：关闭所有正在运行的 Python 程序并重启",
             "type": "file",
-            "arguments": {"path": "custom\\debug.bat", "no_window": True},
-            "keywords": "debug:close_python"
+            "keywords": "debug:close_python",
+            "arguments": {"path": "custom\\debug.bat", "no_window": True}
         }
     ]
 }
