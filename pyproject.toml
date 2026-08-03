@@ -1,0 +1,13 @@
+[project]
+name = "fast-run"
+version = "1.0.0-snapshot-1"
+description = "Allow users to run files quickly."
+readme = ""
+requires-python = ">=3.11"
+dependencies = [
+    "PySide6==6.11.1",
+    "requests==2.34.2",
+    "pyperclip==1.11.0",
+    "python-vlc==3.0.21203",
+    "pywin32==311"
+]
