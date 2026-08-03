@@ -68,8 +68,9 @@ class InternalOperation(Operation):
     def update_display(self, new_display: str, row: int):
         self.display = new_display
         window = self._window
-        if 0 <= row < window.result_list_widget.count():
-            window.result_list_widget.item(row).setText(new_display)
+        visible_row = row - window.visible_start
+        if 0 <= visible_row < window.result_list_widget.count():
+            window.result_list_widget.item(visible_row).setText(new_display)
         if 0 <= row < len(window.filtered_operations):
             window.filtered_operations[row].display = new_display
 

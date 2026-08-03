@@ -24,6 +24,8 @@ class SearchWindow(QMainWindow):
         self.current_query = ""
         self.selected_index = 0
         self.filtered_operations = []
+        self.visible_start = 0
+        self.visible_count = 5
 
         self.search_input_widget = None
         self.result_list_widget = None
@@ -179,11 +181,22 @@ class SearchWindow(QMainWindow):
         self.setGeometry(x, y, window_width, window_height)
 
     def update_result_list(self):
-        for operation in self.filtered_operations:
-            self.result_list_widget.addItem(QListWidgetItem(operation.display))
+        self.result_list_widget.clear()
+        self.visible_start = 0
+        count = min(self.visible_count, len(self.filtered_operations))
+        for i in range(count):
+            self.result_list_widget.addItem(QListWidgetItem(self.filtered_operations[i].display))
         self.selected_index = 0
         self.result_list_widget.setVisible(True)
         self.result_list_widget.setCurrentRow(0)
+
+    def _refresh_visible(self):
+        self.result_list_widget.clear()
+        end = min(self.visible_start + self.visible_count, len(self.filtered_operations))
+        for i in range(self.visible_start, end):
+            self.result_list_widget.addItem(QListWidgetItem(self.filtered_operations[i].display))
+        visible_row = self.selected_index - self.visible_start
+        self.result_list_widget.setCurrentRow(visible_row)
 
     def _find_operation_row(self, op):
         try:
@@ -210,8 +223,6 @@ class SearchWindow(QMainWindow):
         for op in self.operations:
             if op.validate_search(lower_text):
                 self.filtered_operations.append(op)
-                if len(self.filtered_operations) == 5:
-                    break
 
         if self.filtered_operations:
             self.update_result_list()
@@ -270,16 +281,26 @@ class SearchWindow(QMainWindow):
                 self.hide_window()
             return
         elif key == Qt.Key.Key_Up:
-            list_count = self.result_list_widget.count()
-            if self.result_list_widget.isVisible() and list_count > 0:
-                self.selected_index = (self.selected_index - 1) % list_count
-                self.result_list_widget.setCurrentRow(self.selected_index)
+            if self.result_list_widget.isVisible() and len(self.filtered_operations) > 0:
+                if self.selected_index > 0:
+                    self.selected_index -= 1
+                    visible_row = self.selected_index - self.visible_start
+                    if visible_row < 0:
+                        self.visible_start = self.selected_index
+                        self._refresh_visible()
+                    else:
+                        self.result_list_widget.setCurrentRow(visible_row)
             return
         elif key in (Qt.Key.Key_Down, Qt.Key.Key_Tab):
-            list_count = self.result_list_widget.count()
-            if self.result_list_widget.isVisible() and self.result_list_widget.count() > 0:
-                self.selected_index = (self.selected_index + 1) % list_count
-                self.result_list_widget.setCurrentRow(self.selected_index)
+            if self.result_list_widget.isVisible() and len(self.filtered_operations) > 0:
+                if self.selected_index < len(self.filtered_operations) - 1:
+                    self.selected_index += 1
+                    visible_row = self.selected_index - self.visible_start
+                    if visible_row >= self.visible_count:
+                        self.visible_start = self.selected_index - self.visible_count + 1
+                        self._refresh_visible()
+                    else:
+                        self.result_list_widget.setCurrentRow(visible_row)
             return
         elif key == Qt.Key.Key_Escape:
             self.hide_window()
@@ -288,8 +309,9 @@ class SearchWindow(QMainWindow):
         super().keyPressEvent(event)
 
     def on_item_clicked(self, item):
-        self.selected_index = self.result_list_widget.row(item)
-        self.result_list_widget.setCurrentRow(self.selected_index)
+        visible_row = self.result_list_widget.row(item)
+        self.selected_index = self.visible_start + visible_row
+        self.result_list_widget.setCurrentRow(visible_row)
 
     def on_item_double_clicked(self):
         self.execute_operation(self.filtered_operations[self.selected_index])
