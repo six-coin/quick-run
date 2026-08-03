@@ -7,25 +7,33 @@ _MAX_DIR_ITEMS = 100
 _MAX_EXPLORE_DEPTH = 5
 
 
+def _norm(text: str) -> str:
+    result = []
+    for ch in text.lower():
+        if 'a' <= ch <= 'z':
+            result.append(ch)
+    return "".join(result)
+
+
 def _to_pinyin(name: str) -> str:
     result = []
     buf = ""
     for ch in name:
         if '\u4e00' <= ch <= '\u9fff':
             if buf:
-                result.append(buf.lower())
+                result.append(_norm(buf))
                 buf = ""
             py = lazy_pinyin(ch, style=Style.NORMAL)
             if py:
                 result.append(py[0])
         elif ch.isspace():
             if buf:
-                result.append(buf.lower())
+                result.append(_norm(buf))
                 buf = ""
         else:
             buf += ch
     if buf:
-        result.append(buf.lower())
+        result.append(_norm(buf))
     return "".join(result)
 
 
@@ -110,7 +118,7 @@ def scan_root(root_path: str, explore_depth: int) -> Optional[DirEntry]:
 def filter_entries(entries: list[DirEntry], filter_text: str) -> list[DirEntry]:
     if not filter_text:
         return list(entries)
-    lower = filter_text.lower()
+    lower = _norm(filter_text)
     result = []
     for e in entries:
         if lower in e.name.lower() or lower in e.pinyin:

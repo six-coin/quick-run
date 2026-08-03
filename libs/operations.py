@@ -9,6 +9,14 @@ from libs import log
 from libs import runnable
 
 
+def _norm(text: str) -> str:
+    result = []
+    for ch in text.lower():
+        if 'a' <= ch <= 'z':
+            result.append(ch)
+    return "".join(result)
+
+
 class Operation:
     def __init__(self):
         self.display = ""
@@ -63,6 +71,11 @@ class DirOperation(ExternalOperation):
         self.allow_explore = data["arguments"].get("allow_explore", True)
         self.explore_depth = data["arguments"].get("explore_depth", 0)
         self._explore_root = None
+        self.keywords = [_norm(kw) for kw in self.keywords]
+
+    def validate_search(self, search_text: str) -> bool:
+        lower_text = _norm(search_text)
+        return any(kw.startswith(lower_text) for kw in self.keywords)
 
     def execute(self, key_pressed):
         r = runnable.OpenDirRunnable(self.arguments.get("dir", ""))

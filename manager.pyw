@@ -3,7 +3,8 @@ import sys
 import uuid
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import QListWidgetItem, QStackedWidget, QAbstractItemView
+from PySide6.QtWidgets import (QListWidgetItem, QStackedWidget, QAbstractItemView,
+                               QCheckBox, QSpinBox, QFileDialog)
 
 from libs import config
 from libs import log
@@ -20,7 +21,6 @@ class DroppableListWidget(standard_ui.ListWidget):
 
     def dropEvent(self, event):
         super().dropEvent(event)
-        # 设置 QTimer 可以避免列表编辑事件循环未结束时进行数据同步导致数据不同步
         QTimer.singleShot(0, self.reload_data_list)
 
     def reload_data_list(self):
@@ -29,74 +29,94 @@ class DroppableListWidget(standard_ui.ListWidget):
             main_window.reload_data_list()
 
 
-class Operation:
-    __slots__ = ("display_name", "run_type", "run_content", "run_arguments", "search_keywords", "uid")
+_TYPE_DEFAULTS = {
+    "file": {"path": "", "no_window": False},
+    "dir": {"dir": "", "allow_explore": True, "explore_depth": 0},
+    "url": {"url": ""},
+    "cmd": {"command": ""},
+    "debug": {"function": "restart"},
+}
 
-    def __init__(self, display_name="", run_type="", run_content="", run_arguments="", search_keywords=""):
-        self.display_name = display_name
-        self.run_type = run_type
-        self.run_content = run_content
-        self.run_arguments = run_arguments
-        self.search_keywords = search_keywords
-        self.uid = uuid.uuid4().hex  # 用于拖拽时唯一标识
+_TYPE_LABELS = {
+    "file": "打开文件",
+    "dir": "打开文件夹",
+    "url": "打开网页",
+    "cmd": "执行命令",
+    "debug": "程序调试",
+}
+
+
+class Operation:
+    __slots__ = ("display", "type", "arguments", "keywords", "uid")
+
+    def __init__(self, display="", op_type="file", arguments=None, keywords=""):
+        self.display = display
+        self.type = op_type
+        self.arguments = arguments or dict(_TYPE_DEFAULTS.get(op_type, {}))
+        self.keywords = keywords
+        self.uid = uuid.uuid4().hex
 
     def to_dict(self):
         return {
-            "display_name": self.display_name,
-            "run_type": self.run_type,
-            "run_content": self.run_content,
-            "run_arguments": self.run_arguments,
-            "search_keywords": self.search_keywords
+            "display": self.display,
+            "type": self.type,
+            "arguments": self.arguments,
+            "keywords": self.keywords
         }
+
+    def change_type(self, new_type):
+        if new_type == self.type:
+            return
+        old = self.arguments
+        new = dict(_TYPE_DEFAULTS.get(new_type, {}))
+        if new_type == "file" and self.type == "dir":
+            new["path"] = old.get("dir", "")
+        elif new_type == "dir" and self.type == "file":
+            new["dir"] = old.get("path", "")
+        self.type = new_type
+        self.arguments = new
 
     @staticmethod
     def from_dict(origin_dict):
-        operation = Operation(
-            display_name=origin_dict["display_name"],
-            run_type=origin_dict["run_type"],
-            run_content=origin_dict["run_content"],
-            run_arguments=origin_dict["run_arguments"],
-            search_keywords=origin_dict["search_keywords"]
+        return Operation(
+            display=origin_dict.get("display", ""),
+            op_type=origin_dict.get("type", "file"),
+            arguments=origin_dict.get("arguments", {}),
+            keywords=origin_dict.get("keywords", "")
         )
-        return operation
 
 
 class MainWindow(standard_ui.MainWindow):
     def __init__(self):
         super().__init__(0.5, 0.85, "Fast Run 操作管理器")
 
-        # 运行过程中需要用到的部分变量
-        self.dirty = False  # 当前是否有未保存的修改
-        self.data_list = []  # 存放 Operation 类型的数据
-        self.current_index = -1  # 当前选中的列表项的编号（-1 为未选中）
-        self.updating_ui = False  # 防止右侧控件更新时触发循环信号
+        self.dirty = False
+        self.data_list = []
+        self.current_index = -1
+        self.updating_ui = False
 
-        # 加载配置
         self.load_config()
 
-        # 声明部分运行所需变量
         self.list_widget = None
         self.btn_delete = None
         self.btn_save = None
         self.label_placeholder = None
         self.label_detail = None
-        self.edit_display_name = None
-        self.edit_run_type = None
-        self.edit_run_content = None
-        self.edit_run_arguments = None
-        self.edit_search_keywords = None
+        self.edit_display = None
+        self.edit_type_combo = None
+        self.edit_keywords = None
         self.btn_move_up = None
         self.btn_move_down = None
         self.right_stack = None
+        self.common_stack = None
 
-        # 构建界面
+        self._arg_widgets = {}
+
         self.init_ui()
 
-        # 快捷键
         save_action = standard_ui.Action(self, "保存", key_sequence="Ctrl+S", function=self.save_file)
         self.addAction(save_action)
 
-        # 加载列表，并默认选中首项
         self.reload_list_widget(0)
 
     def load_config(self):
@@ -110,7 +130,6 @@ class MainWindow(standard_ui.MainWindow):
             log.error(err_msg)
 
     def init_ui(self):
-        # 左侧区域
         label_select = standard_ui.Label(self, "选择操作")
         list_widget = DroppableListWidget(self)
         list_widget.currentItemChanged.connect(self.on_list_item_changed)
@@ -124,36 +143,29 @@ class MainWindow(standard_ui.MainWindow):
         left_panel = standard_ui.Widget(self, margin=0)
         left_panel.setLayout(left_layout)
 
-        # 右侧区域：分为两种，一种为没用选中任何操作时，显示占位符；一种为选中操作时，显示修改界面
-        # 右侧区域 - 页面 1：占位符
         label_placeholder = standard_ui.Label(self, "请先选择一个操作")
         label_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label_placeholder.setStyleSheet("font-size: 18px; color: #9ca3af;")
 
-        # 右侧区域 - 页面 2：修改界面
         label_detail = standard_ui.Label(self, "操作详情：")
 
-        edit_display_name = standard_ui.LineEdit(self)
-        edit_display_name.textChanged.connect(lambda text: self.on_field_changed("display_name", text))
-        row_1 = standard_ui.HorizontalLayout([standard_ui.Label(self, "显示名称"), edit_display_name])
+        edit_display = standard_ui.LineEdit(self)
+        edit_display.textChanged.connect(lambda text: self.on_field_changed("display", text))
+        row_display = standard_ui.HorizontalLayout([standard_ui.Label(self, "显示名称"), edit_display])
 
-        edit_run_type = standard_ui.LineEdit(self)
-        edit_run_type.textChanged.connect(lambda text: self.on_field_changed("run_type", text))
-        row_2 = standard_ui.HorizontalLayout([standard_ui.Label(self, "运行方式"), edit_run_type])
+        edit_type_combo = standard_ui.ComboBox(self, list(_TYPE_LABELS.values()))
+        edit_type_combo.currentIndexChanged.connect(self.on_type_changed)
+        row_type = standard_ui.HorizontalLayout([standard_ui.Label(self, "运行方式"), edit_type_combo])
 
-        edit_run_content = standard_ui.LineEdit(self)
-        edit_run_content.textChanged.connect(lambda txt: self.on_field_changed("run_content", txt))
-        row_3 = standard_ui.HorizontalLayout([standard_ui.Label(self, "运行内容"), edit_run_content])
+        self._arg_widgets = self._build_arg_pages()
 
-        edit_run_arguments = standard_ui.LineEdit(self)
-        edit_run_arguments.textChanged.connect(lambda txt: self.on_field_changed("run_arguments", txt))
-        row_4 = standard_ui.HorizontalLayout([standard_ui.Label(self, "运行参数"), edit_run_arguments])
+        edit_keywords = standard_ui.LineEdit(self)
+        edit_keywords.textChanged.connect(lambda text: self.on_field_changed("keywords", text))
+        row_keywords = standard_ui.HorizontalLayout([standard_ui.Label(self, "匹配字串"), edit_keywords])
 
-        edit_search_keywords = standard_ui.LineEdit(self)
-        edit_search_keywords.textChanged.connect(lambda txt: self.on_field_changed("search_keywords", txt))
-        row_5 = standard_ui.HorizontalLayout([standard_ui.Label(self, "匹配字串"), edit_search_keywords])
-
-        form_layout = standard_ui.VerticalLayout([row_1, row_2, row_3, row_4, row_5], margin=10, spacing=10)
+        form_layout = standard_ui.VerticalLayout(
+            [row_display, row_type, self._arg_widgets["stack"], row_keywords], margin=10, spacing=10
+        )
 
         btn_move_up = standard_ui.Button(self, "上移一个", lambda: self.move_operation(-1))
         btn_move_down = standard_ui.Button(self, "下移一个", lambda: self.move_operation(1))
@@ -163,65 +175,193 @@ class MainWindow(standard_ui.MainWindow):
         detail_widget = standard_ui.Widget(self, margin=0)
         detail_widget.setLayout(detail_widget_layout)
 
-        # 右侧区域 - 堆叠窗口
         right_stack = QStackedWidget()
         right_stack.addWidget(label_placeholder)
         right_stack.addWidget(detail_widget)
         right_stack.setCurrentIndex(0)
 
-        # 设置中央布局
         splitter = standard_ui.Splitter(self, False, [400, 900], (left_panel, right_stack))
         self.set_central_widget(splitter, margin=30)
 
-        # 定义运行所需变量
         self.list_widget = list_widget
         self.btn_delete = btn_delete
         self.btn_save = btn_save
         self.label_placeholder = label_placeholder
         self.label_detail = label_detail
-        self.edit_display_name = edit_display_name
-        self.edit_run_type = edit_run_type
-        self.edit_run_content = edit_run_content
-        self.edit_run_arguments = edit_run_arguments
-        self.edit_search_keywords = edit_search_keywords
+        self.edit_display = edit_display
+        self.edit_type_combo = edit_type_combo
+        self.edit_keywords = edit_keywords
         self.btn_move_up = btn_move_up
         self.btn_move_down = btn_move_down
         self.right_stack = right_stack
 
+    def _build_arg_pages(self):
+        widgets = {}
+        arg_stack = QStackedWidget()
+
+        for op_type in ("file", "dir", "url", "cmd", "debug"):
+            page = self._build_arg_page(op_type)
+            arg_stack.addWidget(page)
+            widgets[op_type] = page
+
+        widgets["stack"] = arg_stack
+        return widgets
+
+    def _build_arg_page(self, op_type):
+        page = standard_ui.Widget(self, margin=0)
+        rows = []
+
+        if op_type == "file":
+            w_path = standard_ui.LineEdit(self)
+            w_path.textChanged.connect(lambda t: self._on_arg_field("path", t))
+            btn_browse = standard_ui.Button(self, "浏览", function=lambda: self._browse_file(w_path))
+            rows.append(standard_ui.HorizontalLayout([
+                standard_ui.Label(self, "文件路径"), w_path, btn_browse
+            ]))
+            w_nowin = QCheckBox("无窗口运行")
+            w_nowin.stateChanged.connect(lambda s: self._on_arg_field("no_window", s == Qt.CheckState.Checked.value))
+            rows.append(standard_ui.HorizontalLayout([standard_ui.Label(self, ""), w_nowin]))
+            page._w_nowin = w_nowin
+            page._w_path = w_path
+
+        elif op_type == "dir":
+            w_dir = standard_ui.LineEdit(self)
+            w_dir.textChanged.connect(lambda t: self._on_arg_field("dir", t))
+            btn_browse = standard_ui.Button(self, "浏览", function=lambda: self._browse_dir(w_dir))
+            rows.append(standard_ui.HorizontalLayout([
+                standard_ui.Label(self, "文件夹路径"), w_dir, btn_browse
+            ]))
+            w_explore = QCheckBox("允许文件夹浏览")
+            w_explore.setChecked(True)
+            w_explore.stateChanged.connect(lambda s: self._on_dir_explore_changed(s))
+            rows.append(standard_ui.HorizontalLayout([standard_ui.Label(self, ""), w_explore]))
+            w_depth = QSpinBox()
+            w_depth.setRange(0, 5)
+            w_depth.setValue(0)
+            w_depth.valueChanged.connect(lambda v: self._on_arg_field("explore_depth", v))
+            row_depth = standard_ui.HorizontalLayout([standard_ui.Label(self, "探索深度"), w_depth])
+            rows.append(row_depth)
+            page._w_explore = w_explore
+            page._w_dir = w_dir
+            page._w_depth = w_depth
+            page._row_depth = row_depth
+            page._depth_label = row_depth.itemAt(0).widget()
+
+        elif op_type == "url":
+            w_url = standard_ui.LineEdit(self)
+            w_url.textChanged.connect(lambda t: self._on_arg_field("url", t))
+            rows.append(standard_ui.HorizontalLayout([
+                standard_ui.Label(self, "网页地址"), w_url
+            ]))
+            page._w_url = w_url
+
+        elif op_type == "cmd":
+            w_cmd = standard_ui.LineEdit(self)
+            w_cmd.textChanged.connect(lambda t: self._on_arg_field("command", t))
+            rows.append(standard_ui.HorizontalLayout([
+                standard_ui.Label(self, "执行命令"), w_cmd
+            ]))
+            page._w_cmd = w_cmd
+
+        elif op_type == "debug":
+            w_func = standard_ui.ComboBox(self, ["重启程序", "关闭程序"])
+            w_func.currentIndexChanged.connect(lambda i: self._on_arg_field(
+                "function", "restart" if i == 0 else "close"
+            ))
+            rows.append(standard_ui.HorizontalLayout([
+                standard_ui.Label(self, "调试功能"), w_func
+            ]))
+            page._w_func = w_func
+
+        page.setLayout(standard_ui.VerticalLayout(rows, margin=0, spacing=6))
+        page._type = op_type
+        return page
+
+    def _browse_file(self, line_edit):
+        path, _ = QFileDialog.getOpenFileName(self, "选择文件")
+        if path:
+            line_edit.setText(path)
+
+    def _browse_dir(self, line_edit):
+        path = QFileDialog.getExistingDirectory(self, "选择文件夹")
+        if path:
+            line_edit.setText(path)
+
+    def _on_arg_field(self, key, value):
+        if self.updating_ui or self.current_index < 0:
+            return
+        op = self.data_list[self.current_index]
+        op.arguments[key] = value
+        self.dirty = True
+
+    def _on_dir_explore_changed(self, state):
+        on = state == Qt.CheckState.Checked.value
+        self._on_arg_field("allow_explore", on)
+        page = self._arg_widgets["dir"]
+        page._w_depth.setVisible(on)
+        page._depth_label.setVisible(on)
+
+    def on_type_changed(self, index):
+        if self.updating_ui or self.current_index < 0:
+            return
+        type_keys = list(_TYPE_LABELS.keys())
+        new_type = type_keys[index]
+        op = self.data_list[self.current_index]
+        op.change_type(new_type)
+        self._arg_widgets["stack"].setCurrentIndex(index)
+        self._sync_arg_ui(op)
+        self.dirty = True
+
+    def _sync_arg_ui(self, op):
+        page = self._arg_widgets.get(op.type)
+        if not page:
+            return
+        args = op.arguments
+
+        if op.type == "file":
+            page._w_path.setText(args.get("path", ""))
+            page._w_nowin.setChecked(args.get("no_window", False))
+        elif op.type == "dir":
+            page._w_dir.setText(args.get("dir", ""))
+            explore = args.get("allow_explore", True)
+            page._w_explore.setChecked(explore)
+            page._w_depth.setValue(args.get("explore_depth", 0))
+            page._w_depth.setVisible(explore)
+            page._depth_label.setVisible(explore)
+        elif op.type == "url":
+            page._w_url.setText(args.get("url", ""))
+        elif op.type == "cmd":
+            page._w_cmd.setText(args.get("command", ""))
+        elif op.type == "debug":
+            idx = 0 if args.get("function", "") == "close" else 0
+            if args.get("function", "") == "close":
+                idx = 1
+            page._w_func.setCurrentIndex(idx)
+
     def save_file(self):
-        # 校验非空字段
         empty_field = self.validate_operations()
         if empty_field:
-            # 弹出提示框
             op_index, field_name = empty_field
-            formatted_display_name = self.data_list[op_index].display_name or "未命名操作"
+            fmt_name = self.data_list[op_index].display or "未命名操作"
             standard_ui.show_message_dialog(
                 self, "Fast Run 操作管理器 - 保存失败",
-                f"【{formatted_display_name}】的【{self.get_field_chinese(field_name)}】字段不能为空。",
+                f"【{fmt_name}】的【{self.get_field_chinese(field_name)}】字段不能为空。",
                 [("确定", True)]
             )
-
-            # 选中不符合要求的空字段
             self.list_widget.setCurrentRow(op_index)
-            mapping = {
-                "display_name": self.edit_display_name,
-                "run_type": self.edit_run_type,
-                "run_content": self.edit_run_content,
-                "search_keywords": self.edit_search_keywords
-            }
-            widget = mapping.get(field_name)
-            widget.setFocus()
+            if field_name == "display":
+                self.edit_display.setFocus()
+            elif field_name == "keywords":
+                self.edit_keywords.setFocus()
             return False
 
-        # 格式化输入格式
         for num, operation in enumerate(self.data_list):
             self.data_list[num] = self.format_operation(operation)
 
-        # 写入文件
         try:
             schemas.config_dir.mkdir(exist_ok=True)
             with open(schemas.operations_path, "w", encoding="utf-8") as file:
-                json.dump([operation.to_dict() for operation in self.data_list], file, indent=4, ensure_ascii=False)
+                json.dump([op.to_dict() for op in self.data_list], file, indent=4, ensure_ascii=False)
             self.dirty = False
         except Exception as e:
             standard_ui.show_message_dialog(
@@ -231,49 +371,64 @@ class MainWindow(standard_ui.MainWindow):
             )
             return False
 
-        # 重新加载并同步数据
         self.load_config()
         self.reload_list_widget(self.current_index)
         log.write("文件已成功保存", 3)
         return True
 
     def validate_operations(self):
-        for num, operation in enumerate(self.data_list):
-            for field in ("display_name", "run_type", "run_content", "search_keywords"):
-                if not getattr(operation, field, "").strip():
-                    return num, field
+        for num, op in enumerate(self.data_list):
+            if not op.display.strip():
+                return num, "display"
+            if not op.type.strip():
+                return num, "type"
+            if not op.keywords.strip():
+                return num, "keywords"
+            args = op.arguments
+            if op.type == "file" and not args.get("path", "").strip():
+                return num, "path"
+            if op.type == "dir" and not args.get("dir", "").strip():
+                return num, "dir"
+            if op.type == "url" and not args.get("url", "").strip():
+                return num, "url"
+            if op.type == "cmd" and not args.get("command", "").strip():
+                return num, "command"
         return None
 
     @staticmethod
     def get_field_chinese(field_name):
         return {
-            "display_name": "显示名称",
-            "run_type": "运行方式",
-            "run_content": "运行内容",
-            "search_keywords": "匹配字串"
+            "display": "显示名称",
+            "type": "运行方式",
+            "keywords": "匹配字串",
+            "path": "文件路径",
+            "dir": "文件夹路径",
+            "url": "网页地址",
+            "command": "执行命令",
         }.get(field_name, field_name)
 
     @staticmethod
-    def format_operation(operation):
-        operation.display_name = operation.display_name.strip()
-        operation.run_type = operation.run_type.strip()
-        operation.run_content = operation.run_content.strip()
-        if operation.run_type == "file":
-            operation.run_content = operation.run_content.strip("\"").replace('/', '\\')
-        if operation.run_type == "url":
-            operation.run_content = operation.run_content.replace('\\', '/')
-        operation.run_arguments = operation.run_arguments.strip()
-        operation.search_keywords = operation.search_keywords.strip()
-        return operation
+    def format_operation(op):
+        op.display = op.display.strip()
+        op.keywords = op.keywords.strip()
+        args = op.arguments
+        if op.type == "file":
+            args["path"] = args.get("path", "").strip().strip("\"").replace('/', '\\')
+        elif op.type == "dir":
+            args["dir"] = args.get("dir", "").strip().strip("\"").replace('/', '\\')
+        elif op.type == "url":
+            args["url"] = args.get("url", "").strip().replace('\\', '/')
+        elif op.type == "cmd":
+            args["command"] = args.get("command", "").strip()
+        return op
 
     def reload_list_widget(self, selected_row):
-        """从 self.data_list 完全刷新 self.list_widget，并选中指定的行（-1 表示不选中）"""
         self.list_widget.blockSignals(True)
         self.list_widget.clear()
-        for operation in self.data_list:
-            text = operation.display_name if operation.display_name else "未命名操作"
+        for op in self.data_list:
+            text = op.display if op.display else "未命名操作"
             item = QListWidgetItem(text)
-            item.setData(Qt.ItemDataRole.UserRole, operation.uid)
+            item.setData(Qt.ItemDataRole.UserRole, op.uid)
             self.list_widget.addItem(item)
         self.list_widget.blockSignals(False)
         if selected_row is None:
@@ -285,7 +440,6 @@ class MainWindow(standard_ui.MainWindow):
             self.on_list_item_changed()
 
     def on_list_item_changed(self):
-        """调用于选中的列表项修改时，或清除选中时"""
         self.current_index = self.list_widget.currentRow()
         if self.current_index == -1:
             self.update_right_panel(None)
@@ -295,60 +449,52 @@ class MainWindow(standard_ui.MainWindow):
             self.btn_delete.setEnabled(True)
 
     def reload_data_list(self):
-        """从 self.list_widget 完全刷新 self.data_list，调用于列表项被拖拽移动后"""
-        uid_to_operation = {operation.uid: operation for operation in self.data_list}
+        uid_to_op = {op.uid: op for op in self.data_list}
         new_data_list = []
         for num in range(self.list_widget.count()):
             uid = self.list_widget.item(num).data(Qt.ItemDataRole.UserRole)
-            new_data_list.append(uid_to_operation[uid])
+            new_data_list.append(uid_to_op[uid])
         self.data_list = new_data_list
         self.current_index = self.list_widget.currentRow()
         self.dirty = True
 
     def update_right_panel(self, operation):
-        """刷新右侧面板，传入若是 None 则为空"""
         if operation is None:
             self.right_stack.setCurrentIndex(0)
             self.updating_ui = True
-            self.edit_display_name.clear()
-            self.edit_run_type.clear()
-            self.edit_run_content.clear()
-            self.edit_run_arguments.clear()
-            self.edit_search_keywords.clear()
+            self.edit_display.clear()
+            self.edit_type_combo.setCurrentIndex(0)
+            self.edit_keywords.clear()
+            self._arg_widgets["stack"].setCurrentIndex(0)
             self.updating_ui = False
             return
         self.right_stack.setCurrentIndex(1)
         self.updating_ui = True
-        self.edit_display_name.setText(operation.display_name)
-        self.edit_run_type.setText(operation.run_type)
-        self.edit_run_content.setText(operation.run_content)
-        self.edit_run_arguments.setText(operation.run_arguments)
-        self.edit_search_keywords.setText(operation.search_keywords)
-        formatted_display_name = operation.display_name if operation.display_name else "未命名操作"
-        self.label_detail.setText(f"操作详情：{formatted_display_name}")
+        self.edit_display.setText(operation.display)
+        type_keys = list(_TYPE_LABELS.keys())
+        type_idx = type_keys.index(operation.type) if operation.type in type_keys else 0
+        self.edit_type_combo.setCurrentIndex(type_idx)
+        self._arg_widgets["stack"].setCurrentIndex(type_idx)
+        self._sync_arg_ui(operation)
+        self.edit_keywords.setText(operation.keywords)
+        fmt_name = operation.display if operation.display else "未命名操作"
+        self.label_detail.setText(f"操作详情：{fmt_name}")
         self.updating_ui = False
 
     def on_field_changed(self, field, text):
-        """调用于右侧面板的文本框修改时，将文本框内容同步至 self.data_list 等"""
-        # 若正在更新界面，则取消操作
         if self.updating_ui:
             return
-
-        # 同步 self.data_list
-        operation = self.data_list[self.current_index]
-        setattr(operation, field, text)
-
-        # 同步列表项名称与右侧面板标题
-        if field == "display_name":
-            formatted_display_name = text if text else "未命名操作"
-            self.label_detail.setText(f"操作详情：{formatted_display_name}")
-            self.list_widget.item(self.current_index).setText(formatted_display_name)
-
+        op = self.data_list[self.current_index]
+        setattr(op, field, text)
+        if field == "display":
+            fmt_name = text if text else "未命名操作"
+            self.label_detail.setText(f"操作详情：{fmt_name}")
+            self.list_widget.item(self.current_index).setText(fmt_name)
         self.dirty = True
 
     def add_operation(self):
-        new_operation = Operation()
-        self.data_list.insert(0, new_operation)
+        new_op = Operation()
+        self.data_list.insert(0, new_op)
         self.reload_list_widget(0)
         self.dirty = True
 
@@ -372,53 +518,38 @@ class MainWindow(standard_ui.MainWindow):
     def show_help(self):
         help_text = """
         <h2>Fast Run 操作管理器 帮助</h2>
-        
-        <h3>一、Fast Run 程序功能概述</h3>
+
+        <h3>一、操作类型</h3>
         <ul>
-            <li>使用快捷键 <code>Alt + Space</code> 在屏幕上方呼出搜索框。</li>
-            <li>在搜索框内输入文字后，程序会在下方结果列表中显示至多 5 个匹配的“操作”。</li>
-            <li>使用上下箭头或鼠标单击选中这些“操作”中的其中一个；使用回车或双击来执行选中的“操作”。</li>
-            <li>使用 <code>Shift + 上下箭头</code> 调出执行的历史记录。</li>
-            <li>键入内容无匹配项时，会显示搜索、查词与翻译。</li>
-            <li>特殊键（<code>Alt</code>、<code>Shift</code>、<code>Ctrl</code>）可配合操作触发额外行为。</li>
-            <li>搜索时默认使用必应搜索引擎，若使用了网络代理则使用百度搜索引擎。</li>
-            <li>查词需要回车或双击开始，加载成功后再次执行时，若查词成功会复制结果，否则重新查询。</li>
-            <li>若输入内容小于 30 字符，会启动实时翻译功能。</li>
-            <li>执行翻译操作会打开对应的百度翻译网页。</li>
-            <li>若按住特殊键并执行操作，会播放输入内容的语音（仅支持英语与中文）。</li>
-            <li>若键入的内容均为数字与计算符号，则仅会显示计算与搜索；计算完成后执行操作会复制计算结果。</li>
-            <li>打开文件时，若按住特殊键，则会打开文件所在路径。</li>
+            <li><b>打开文件</b>：用系统默认程序打开一个文件。可勾选“无窗口运行”以避免弹出命令行窗口。</li>
+            <li><b>打开文件夹</b>：用文件资源管理器打开一个文件夹。可勾选“允许文件夹浏览”以启用输入空格浏览子目录的功能（需设置探索深度）。</li>
+            <li><b>打开网页</b>：用默认浏览器打开一个网址。</li>
+            <li><b>执行命令</b>：在命令行中执行一条命令。</li>
+            <li><b>程序调试</b>：重启或关闭 Fast Run 程序。</li>
         </ul>
-        
+
         <h3>二、操作字段说明</h3>
         <ul>
             <li><b>显示名称</b>：在结果列表中显示的文本。</li>
-            <li><b>运行方式</b>：包括 <code>file</code>（打开文件）、<code>dir</code>（打开文件夹）、<code>url</code>（打开网页）等。</li>
-            <li><b>运行内容</b>：要打开的文件、文件夹路径或网页地址。编辑时可直接从文件资源管理器地址栏复制路径，或右键文件选择“复制文件路径”后粘贴。</li>
-            <li><b>运行参数</b>：附加参数，用 <code>|</code> 分隔。例如运行方式为 <code>file</code>，参数为 <code>no_window</code> 可使文件无窗口运行。本字段可选。</li>
-            <li><b>匹配字串</b>：用于匹配搜索框内文本的字符串，多个关键词用 <code>|</code> 分隔。当任一子串被搜索框输入前缀匹配时，该操作即被匹配。</li>
+            <li><b>运行方式</b>：选择操作的类型。</li>
+            <li><b>匹配字串</b>：用于匹配搜索框内文本的字符串，多个关键词用 <code>|</code> 分隔。前缀匹配。</li>
         </ul>
-        
-        <h3>三、本程序操作方式说明</h3>
+
+        <h3>三、文件夹浏览功能说明</h3>
+        <ul>
+            <li>勾选“允许文件夹浏览”后，在主搜索框输入关键词+空格即可进入该文件夹的子文件浏览模式。</li>
+            <li>探索深度控制最多可以进入多少层子文件夹。0 表示仅显示根目录内容，2 表示可以进入一层子文件夹。</li>
+            <li>深度最大不能超过 5。子文件夹内条目超过 100 个的不会被扫描。</li>
+            <li>浏览模式下支持拼音搜索和序号选择（例：<code>关键词 a#2</code>）。</li>
+        </ul>
+
+        <h3>四、本程序操作方式</h3>
         <ul>
             <li><b>添加操作</b>：点击“添加操作”按钮，新条目将插入到列表顶部。</li>
             <li><b>删除操作</b>：选中列表中的某个操作后，点击“删除选中操作”按钮将其移除。</li>
-            <li><b>编辑操作</b>：点击左侧列表中的操作，右侧会显示详细编辑区域，编辑文本框内的内容即可。</li>
             <li><b>调整顺序</b>：通过右侧的“上移一个”和“下移一个”按钮移动当前选中项，或直接拖拽列表项进行排序。</li>
-            <li>按 <code>Ctrl + S</code> 亦可保存文件。</li>
-            <li>保存前会自动检查必填字段（显示名称、运行方式、运行内容、匹配字串）是否为空，若为空，则无法保存。</li>
-            <li>关闭窗口时若有未保存的更改，会询问是否保存，选择“取消”可返回继续编辑。</li>
-        </ul>
-        
-        <h3>四、注意事项</h3>
-        <ul>
-            <li>在实现复杂功能时，可使用 <code>.bat</code>、<code>.py</code>、<code>.pyw</code> 文件，并将其置于 <code>custom</code> 文件夹中。只需定义一个打开该文件的操作即可。</li>
-            <li>查词功能需要联网，并在 <code>config/ai.json</code> 中定义调用 AI 的 <code>api_key</code>。</li>
-            <li>实时翻译功能需要联网，并在 <code>config/translate.json</code> 中定义翻译 API 的相关内容。</li>
-            <li>翻译的语音功能需要联网。</li>
-            <li>翻译的文本转语音功能使用 <code>python-vlc</code> 库实现，若希望使用，请在电脑上安装 VLC Media Player，并在安装时不要取消勾选环境变量一项。</li>
-            <li>运行内容中的路径分隔符会自动统一为反斜杠，首尾引号会被自动去除。</li>
-            <li>配置文件路径与程序所在目录相关，请确保程序对该目录有读写权限。</li>
+            <li>按 <code>Ctrl + S</code> 保存文件。</li>
+            <li>关闭窗口时若有未保存的更改，会询问是否保存。</li>
         </ul>
         """
         dialog = standard_ui.Dialog(self, "Fast Run 操作管理器 - 帮助")
@@ -460,10 +591,8 @@ def main():
     log.init("manage")
 
     try:
-        # 创建 app，初始化窗口
         app = standard_ui.Application(sys.argv)
         window = MainWindow()
-        # 运行程序
         window.show()
         sys.exit(app.exec())
     except Exception as e:
