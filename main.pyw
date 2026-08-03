@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QFrame)
 
 from libs import config
+from libs import explorer
 from libs import keyboard
 from libs import log
 from libs import operations as ops
@@ -20,7 +21,11 @@ class SearchWindow(QMainWindow):
 
         self.operations = []
         for op_data in config.configs["operations"]:
-            self.operations.append(ops.ExternalOperation(op_data))
+            if op_data["type"] == "dir":
+                op = ops.DirOperation(op_data)
+            else:
+                op = ops.ExternalOperation(op_data)
+            self.operations.append(op)
         self.current_query = ""
         self.selected_index = 0
         self.filtered_operations = []
@@ -114,6 +119,11 @@ class SearchWindow(QMainWindow):
 
         self._definition_row = -1
 
+    def build_dir_trees(self):
+        for op in self.operations:
+            if isinstance(op, ops.DirOperation):
+                op.build_tree()
+
     def show_window(self):
         if self.is_showing or self.is_hiding:
             return
@@ -205,7 +215,7 @@ class SearchWindow(QMainWindow):
             return -1
 
     def filter_operations(self, text):
-        text = text.strip().replace("\n", " ")
+        text = text.replace("\n", " ")
         self.current_query = text
 
         if self.history_pos == self.history_last:
@@ -218,10 +228,46 @@ class SearchWindow(QMainWindow):
             self.result_list_widget.setVisible(False)
             return
 
+        if text.strip().endswith("`"):
+            text = text[:-1].strip()
+            self.filtered_operations = []
+            self._create_internal_operations(text)
+            self.update_result_list()
+            return
+
+        if " " in text:
+            first_space = text.index(" ")
+            keyword = text[:first_space]
+            nav_text = text[first_space + 1:]
+
+            lower_keyword = keyword.lower()
+            matching_op = None
+            for op in self.operations:
+                if isinstance(op, ops.DirOperation) and op.allow_explore and op._explore_root:
+                    if op.validate_search(lower_keyword):
+                        matching_op = op
+                        break
+
+            if matching_op:
+                result = explorer.navigate(
+                    matching_op._explore_root, nav_text, matching_op.explore_depth
+                )
+                self.filtered_operations = []
+                if result.error:
+                    self.filtered_operations.append(ops.ErrorOperation(result.error, self))
+                else:
+                    for entry in result.entries:
+                        self.filtered_operations.append(ops.ExploreOperation(entry, self))
+                self.update_result_list()
+                return
+
         self.filtered_operations = []
         lower_text = text.lower()
         for op in self.operations:
-            if op.validate_search(lower_text):
+            if isinstance(op, ops.DirOperation):
+                if op.validate_search(lower_text):
+                    self.filtered_operations.append(op)
+            elif op.validate_search(lower_text):
                 self.filtered_operations.append(op)
 
         if self.filtered_operations:
@@ -325,6 +371,22 @@ class SearchWindow(QMainWindow):
             key_pressed.append("shift_pressed")
         if modifiers & Qt.KeyboardModifier.AltModifier:
             key_pressed.append("alt_pressed")
+
+        if isinstance(operation, ops.ErrorOperation):
+            operation.execute(key_pressed)
+            return
+
+        if isinstance(operation, ops.ExploreOperation):
+            self.hide_window()
+            self._reset_internal_state()
+            operation.execute(key_pressed)
+            return
+
+        if isinstance(operation, ops.DirOperation):
+            self.hide_window()
+            self._reset_internal_state()
+            operation.execute(key_pressed)
+            return
 
         if operation.is_external:
             self.hide_window()
@@ -475,6 +537,8 @@ def main():
         app.setStyle("Windows")
         window = SearchWindow()
         log.write("已初始化窗口", 3)
+        window.build_dir_trees()
+        log.write("已构建目录树", 3)
 
         keyboard_worker = keyboard.KeyboardWorker()
         thread = QThread()

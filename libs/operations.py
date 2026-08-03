@@ -1,8 +1,10 @@
+import os
 import time
 import pyperclip
 
 from PySide6.QtCore import QThreadPool
 
+from libs import explorer
 from libs import log
 from libs import runnable
 
@@ -44,10 +46,6 @@ class ExternalOperation(Operation):
             )
             QThreadPool.globalInstance().start(r)
             log.write(f"操作成功执行：{self.display}（file）", 3)
-        elif self.type == "dir":
-            r = runnable.OpenDirRunnable(self.arguments.get("dir", ""))
-            QThreadPool.globalInstance().start(r)
-            log.write(f"操作成功执行：{self.display}（dir）", 3)
         elif self.type == "url":
             r = runnable.OpenUrlRunnable(self.arguments.get("url", ""))
             QThreadPool.globalInstance().start(r)
@@ -56,6 +54,26 @@ class ExternalOperation(Operation):
             r = runnable.RunCmdRunnable(self.arguments.get("command", ""))
             QThreadPool.globalInstance().start(r)
             log.write(f"操作成功执行：{self.display}（cmd）", 3)
+
+
+class DirOperation(ExternalOperation):
+    def __init__(self, data: dict):
+        super().__init__(data)
+        self.is_external = True
+        self.allow_explore = data["arguments"].get("allow_explore", True)
+        self.explore_depth = data["arguments"].get("explore_depth", 0)
+        self._explore_root = None
+
+    def execute(self, key_pressed):
+        r = runnable.OpenDirRunnable(self.arguments.get("dir", ""))
+        QThreadPool.globalInstance().start(r)
+        log.write(f"操作成功执行：{self.display}（dir）", 3)
+
+    def build_tree(self):
+        if self.allow_explore:
+            self._explore_root = explorer.scan_root(
+                self.arguments.get("dir", ""), self.explore_depth
+            )
 
 
 class InternalOperation(Operation):
@@ -199,3 +217,32 @@ class DefinitionOperation(InternalOperation):
 
     def set_result(self, result_text: str):
         self._result = result_text
+
+
+class ExploreOperation(InternalOperation):
+    def __init__(self, entry, window):
+        super().__init__(window)
+        self.type = "explore"
+        self.entry = entry
+        prefix = "文件夹：" if entry.is_dir else "文件："
+        self.display = f"{prefix}{entry.name}"
+
+    def execute(self, key_pressed):
+        if self.entry.is_dir:
+            os.startfile(self.entry.full_path)
+        else:
+            r = runnable.OpenFileRunnable(self.entry.full_path, False, key_pressed)
+            QThreadPool.globalInstance().start(r)
+        self._window.hide_window()
+        self._window._reset_internal_state()
+
+
+class ErrorOperation(InternalOperation):
+    def __init__(self, message, window):
+        super().__init__(window)
+        self.type = "error"
+        self.display = f"错误：{message}"
+
+    def execute(self, key_pressed):
+        self._window.hide_window()
+        self._window._reset_internal_state()
