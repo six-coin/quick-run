@@ -11,69 +11,61 @@ operations_schema = {
     "items": {
         "type": dict,
         "required": [
-            "run_type",
-            "run_content",
-            "display_name",
-            "run_arguments",
-            "search_keywords"
+            "display",
+            "type",
+            "arguments",
+            "keywords"
         ],
         "properties": {
-            "run_type": {"type": str},
-            "run_content": {"type": str},
-            "display_name": {"type": str},
-            "run_arguments": {"type": str},
-            "search_keywords": {"type": str}
+            "display": {"type": str},
+            "type": {"type": str},
+            "arguments": {"type": dict},
+            "keywords": {"type": str}
         }
     },
     "default": [
         {
-            "display_name": "重启程序",
-            "run_type": "debug",
-            "run_content": "-",
-            "run_arguments": "restart",
-            "search_keywords": "sys:restart|restart"
+            "display": "重启程序",
+            "type": "debug",
+            "arguments": {"function": "restart"},
+            "keywords": "sys:restart|restart"
         },
         {
-            "display_name": "关闭程序",
-            "run_type": "debug",
-            "run_content": "-",
-            "run_arguments": "close",
-            "search_keywords": "sys:close|close"
+            "display": "关闭程序",
+            "type": "debug",
+            "arguments": {"function": "close"},
+            "keywords": "sys:close|close"
         },
         {
-            "display_name": "操作管理与帮助",
-            "run_type": "file",
-            "run_content": "manager.py",
-            "run_arguments": "",
-            "search_keywords": "sys:manager|manager|sys:help|help"
+            "display": "操作管理与帮助",
+            "type": "file",
+            "arguments": {"path": "manager.pyw", "no_window": False},
+            "keywords": "sys:manager|manager|sys:help|help"
         },
         {
-            "display_name": "打开程序文件夹",
-            "run_type": "dir",
-            "run_content": "E:\\Play\\Utilities\\Fast Run",
-            "run_arguments": "",
-            "search_keywords": "sys:folder|folder"
+            "display": "打开程序文件夹",
+            "type": "dir",
+            "arguments": {"dir": "E:\\Play\\Utilities\\Fast Run"},
+            "keywords": "sys:folder|folder"
         },
         {
-            "display_name": "打开启动文件夹",
-            "run_type": "dir",
-            "run_content": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup",
-            "run_arguments": "",
-            "search_keywords": "sys:startup|startup"
+            "display": "打开启动文件夹",
+            "type": "dir",
+            "arguments": {"dir": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"},
+            "keywords": "sys:startup|startup"
         },
         {
-            "display_name": "调试：运行开机启动文件",
-            "run_type": "file",
-            "run_content": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\run.pyw",
-            "run_arguments": "",
-            "search_keywords": "debug:startup_file"
+            "display": "调试：运行开机启动文件",
+            "type": "file",
+            "arguments": {"path": "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\run.pyw",
+                          "no_window": False},
+            "keywords": "debug:startup_file"
         },
         {
-            "display_name": "调试：关闭所有正在运行的 Python 程序并重启",
-            "run_type": "file",
-            "run_content": "custom\\debug.bat",
-            "run_arguments": "no_window",
-            "search_keywords": "debug:close_python"
+            "display": "调试：关闭所有正在运行的 Python 程序并重启",
+            "type": "file",
+            "arguments": {"path": "custom\\debug.bat", "no_window": True},
+            "keywords": "debug:close_python"
         }
     ]
 }

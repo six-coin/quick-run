@@ -65,8 +65,8 @@ def _validate_json(value, schema, path="root"):
         raise Exception(f"{path} 类型错误：应为 {expected_type.__name__}，实际是 {type(value).__name__}")
 
     if expected_type == dict:
-        properties = schema["properties"]
-        required = schema["required"]
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
 
         for key in required:
             if key not in value:
@@ -77,16 +77,16 @@ def _validate_json(value, schema, path="root"):
                 _validate_json(value[key], sub_schema, path=f"{path}.{key}")
 
     elif expected_type == list:
-        items_schema = schema["items"]
+        items_schema = schema.get("items")
         min_length = schema.get("min_length", None)
         max_length = schema.get("max_length", None)
-        list_length = len(items_schema)
+        list_length = len(value)
         if min_length is not None and list_length < min_length:
             raise Exception(f"{path} 列表长度不符合要求：最小长度为{min_length}")
-        if max_length is not None and list_length < max_length:
+        if max_length is not None and list_length > max_length:
             raise Exception(f"{path} 列表长度不符合要求：最大长度为{max_length}")
 
-        if items_schema:
+        if items_schema is not None:
             for i, item in enumerate(value):
                 _validate_json(item, items_schema, path=f"{path}[{i}]")
 
