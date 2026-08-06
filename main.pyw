@@ -10,6 +10,7 @@ from libs import explorer
 from libs import keyboard
 from libs import log
 from libs import operations as ops
+from libs import runnable
 from libs import schemas
 from libs import style_sheets
 from libs import taskbar
@@ -58,6 +59,16 @@ class SearchWindow(QMainWindow):
 
         self.ai_api_key = config.configs.get("ai", {}).get("api_key", "")
         self._definition_row = -1
+
+        self._tr_signal = runnable.Signals()
+        self._tr_signal.success.connect(self._on_translate_success)
+        self._tr_signal.error.connect(self._on_translate_error)
+        self._calc_signal = runnable.Signals()
+        self._calc_signal.success.connect(self._on_calculate_success)
+        self._calc_signal.error.connect(self._on_calculate_error)
+        self._def_signal = runnable.Signals()
+        self._def_signal.success.connect(self._on_definition_success)
+        self._def_signal.error.connect(self._on_definition_error)
 
         self.history_input = []
         self.history_pos = -1
@@ -423,85 +434,93 @@ class SearchWindow(QMainWindow):
         return super().eventFilter(obj, event)
 
     def _on_translate_timer(self):
-        if self._translate_row < 0 or self._translate_row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[self._translate_row]
-        if isinstance(op, ops.TranslateOperation):
-            op.start_fetch(self._translate_row)
+        try:
+            if self._translate_row < 0 or self._translate_row >= len(self.filtered_operations):
+                return
+            op = self.filtered_operations[self._translate_row]
+            if isinstance(op, ops.TranslateOperation) and op._translate_config:
+                op.start_fetch(self._translate_row)
+        except Exception:
+            pass
 
-    def _on_translate_success(self, result_list, row):
-        result_text, translate_id = result_list[0], result_list[1]
-        if row < 0 or row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[row]
-        if not isinstance(op, ops.TranslateOperation) or translate_id != op.translate_id:
-            return
-        new_text = f"翻译：{result_text}"
-        op.update_display(new_text, row)
+    def _on_translate_success(self, result_list):
+        try:
+            result_text, translate_id = result_list[0], result_list[1]
+            for i, op in enumerate(self.filtered_operations):
+                if isinstance(op, ops.TranslateOperation) and op.translate_id == translate_id:
+                    new_text = f"翻译：{result_text}"
+                    op.update_display(new_text, i)
+                    return
+        except Exception:
+            pass
 
-    def _on_translate_error(self, result_list, row):
-        error_msg, translate_id = result_list[0], result_list[1]
-        if row < 0 or row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[row]
-        if not isinstance(op, ops.TranslateOperation) or translate_id != op.translate_id:
-            return
-        new_text = f"翻译：{error_msg}"
-        op.update_display(new_text, row)
+    def _on_translate_error(self, result_list):
+        try:
+            error_msg, translate_id = result_list[0], result_list[1]
+            for i, op in enumerate(self.filtered_operations):
+                if isinstance(op, ops.TranslateOperation) and op.translate_id == translate_id:
+                    new_text = f"翻译：{error_msg}"
+                    op.update_display(new_text, i)
+                    return
+        except Exception:
+            pass
 
     def _on_calculate_timer(self):
-        if self._calculate_row < 0 or self._calculate_row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[self._calculate_row]
-        if isinstance(op, ops.CalculateOperation):
-            op.start_fetch(self._calculate_row)
+        try:
+            if self._calculate_row < 0 or self._calculate_row >= len(self.filtered_operations):
+                return
+            op = self.filtered_operations[self._calculate_row]
+            if isinstance(op, ops.CalculateOperation):
+                op.start_fetch(self._calculate_row)
+        except Exception:
+            pass
 
-    def _on_calculate_success(self, result_list, row):
-        calc_result, calculate_id = result_list[0], result_list[1]
-        if row < 0 or row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[row]
-        if not isinstance(op, ops.CalculateOperation) or calculate_id != op.calculate_id:
-            return
-        op._result = calc_result
-        op.calculate_status = 2
-        new_text = f"计算：{calc_result}"
-        op.update_display(new_text, row)
+    def _on_calculate_success(self, result_list):
+        try:
+            calc_result, calculate_id = result_list[0], result_list[1]
+            for i, op in enumerate(self.filtered_operations):
+                if isinstance(op, ops.CalculateOperation) and op.calculate_id == calculate_id:
+                    op._result = calc_result
+                    op.calculate_status = 2
+                    op.update_display(f"计算：{calc_result}", i)
+                    return
+        except Exception:
+            pass
 
-    def _on_calculate_error(self, result_list, row):
-        error_msg, calculate_id = result_list[0], result_list[1]
-        if row < 0 or row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[row]
-        if not isinstance(op, ops.CalculateOperation) or calculate_id != op.calculate_id:
-            return
-        op._result = error_msg
-        op.calculate_status = 3
-        new_text = f"计算：{error_msg}"
-        op.update_display(new_text, row)
+    def _on_calculate_error(self, result_list):
+        try:
+            error_msg, calculate_id = result_list[0], result_list[1]
+            for i, op in enumerate(self.filtered_operations):
+                if isinstance(op, ops.CalculateOperation) and op.calculate_id == calculate_id:
+                    op._result = error_msg
+                    op.calculate_status = 3
+                    op.update_display(f"计算：{error_msg}", i)
+                    return
+        except Exception:
+            pass
 
-    def _on_definition_success(self, result_list, row):
-        def_result, definition_id = result_list[0], result_list[1]
-        if row < 0 or row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[row]
-        if not isinstance(op, ops.DefinitionOperation) or definition_id != op._definition_id:
-            return
-        op.definition_status = 2
-        op.set_result(def_result)
-        new_text = f"查词：{def_result}"
-        op.update_display(new_text, row)
+    def _on_definition_success(self, result_list):
+        try:
+            def_result, definition_id = result_list[0], result_list[1]
+            for i, op in enumerate(self.filtered_operations):
+                if isinstance(op, ops.DefinitionOperation) and op._definition_id == definition_id:
+                    op.definition_status = 2
+                    op.set_result(def_result)
+                    op.update_display(f"查词：{def_result}", i)
+                    return
+        except Exception:
+            pass
 
-    def _on_definition_error(self, result_list, row):
-        error_msg, definition_id = result_list[0], result_list[1]
-        if row < 0 or row >= len(self.filtered_operations):
-            return
-        op = self.filtered_operations[row]
-        if not isinstance(op, ops.DefinitionOperation) or definition_id != op._definition_id:
-            return
-        op.definition_status = 3
-        new_text = f"查词：{error_msg}"
-        op.update_display(new_text, row)
+    def _on_definition_error(self, result_list):
+        try:
+            error_msg, definition_id = result_list[0], result_list[1]
+            for i, op in enumerate(self.filtered_operations):
+                if isinstance(op, ops.DefinitionOperation) and op._definition_id == definition_id:
+                    op.definition_status = 3
+                    op.update_display(f"查词：{error_msg}", i)
+                    return
+        except Exception:
+            pass
 
 
 def read_config():

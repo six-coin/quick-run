@@ -108,7 +108,7 @@ def _scan_dir(path: str, current_depth: int, max_depth: int) -> DirEntry:
 
 
 def scan_root(root_path: str, explore_depth: int) -> Optional[DirEntry]:
-    depth = max(0, min(explore_depth, _MAX_EXPLORE_DEPTH))
+    depth = max(0, min(explore_depth + 1, _MAX_EXPLORE_DEPTH))
     try:
         return _scan_dir(root_path, 0, depth)
     except Exception:
@@ -131,6 +131,8 @@ def _parse_token(token: str) -> tuple[str, Optional[int]]:
         return token, None
     parts = token.split("#", 1)
     filter_text = parts[0]
+    if not parts[1]:
+        return filter_text, None
     try:
         num = int(parts[1])
         if num < 1:
@@ -183,7 +185,7 @@ def navigate(root: DirEntry, nav_text: str, explore_depth: int) -> ExploreResult
             if not item.is_dir:
                 return ExploreResult(error="没有指定的文件夹")
 
-            if nav_depth >= explore_depth - 1:
+            if nav_depth >= explore_depth:
                 return ExploreResult(error="搜索已达深度上限")
 
             current = item
@@ -201,7 +203,7 @@ def navigate(root: DirEntry, nav_text: str, explore_depth: int) -> ExploreResult
             if not first.is_dir:
                 return ExploreResult(error="没有指定的文件夹")
 
-            if nav_depth >= explore_depth - 1:
+            if nav_depth >= explore_depth:
                 return ExploreResult(error="搜索已达深度上限")
 
             current = first

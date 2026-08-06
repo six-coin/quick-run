@@ -137,16 +137,16 @@ class TranslateOperation(InternalOperation):
             self.display = f"翻译：{text}"
 
     def start_fetch(self, row: int):
+        if not self._translate_config or "appid" not in self._translate_config:
+            return
         self.update_display("翻译：加载中...", row)
         r = runnable.TranslateRunnable(
             text=self._text,
             appid=self._translate_config["appid"],
             secret_key=self._translate_config["secret_key"],
-            translate_id=self.translate_id
+            translate_id=self.translate_id,
+            signals=self._window._tr_signal
         )
-        window = self._window
-        r.signals.success.connect(lambda rlist, r=row: window._on_translate_success(rlist, r))
-        r.signals.error.connect(lambda rlist, r=row: window._on_translate_error(rlist, r))
         QThreadPool.globalInstance().start(r)
 
     def execute(self, key_pressed):
@@ -184,11 +184,9 @@ class CalculateOperation(InternalOperation):
     def start_fetch(self, row: int):
         r = runnable.CalculateRunnable(
             calculate_equation=self._equation,
-            calculate_id=self.calculate_id
+            calculate_id=self.calculate_id,
+            signals=self._window._calc_signal
         )
-        window = self._window
-        r.signals.success.connect(lambda rlist, r=row: window._on_calculate_success(rlist, r))
-        r.signals.error.connect(lambda rlist, r=row: window._on_calculate_error(rlist, r))
         QThreadPool.globalInstance().start(r)
 
     def execute(self, key_pressed):
@@ -207,17 +205,17 @@ class DefinitionOperation(InternalOperation):
         self.display = f"查词：{text}（回车或双击开始查词）"
 
     def start_fetch(self, row: int):
+        if not self._api_key:
+            return
         self.definition_status = 1
         self._definition_id = int(time.time() * 1000)
         self.update_display("查词：加载中...", row)
         r = runnable.DefinitionRunnable(
             text=self._text,
             api_key=self._api_key,
-            definition_id=self._definition_id
+            definition_id=self._definition_id,
+            signals=self._window._def_signal
         )
-        window = self._window
-        r.signals.success.connect(lambda rlist, r=row: window._on_definition_success(rlist, r))
-        r.signals.error.connect(lambda rlist, r=row: window._on_definition_error(rlist, r))
         QThreadPool.globalInstance().start(r)
 
     def execute(self, key_pressed):

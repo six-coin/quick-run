@@ -19,13 +19,14 @@ class Signals(QObject):
 
 
 class TranslateRunnable(QRunnable):
-    def __init__(self, text, appid, secret_key, translate_id):
+    def __init__(self, text, appid, secret_key, translate_id, signals):
         super().__init__()
+        self.setAutoDelete(False)
         self.text = text
         self.appid = appid
         self.secret_key = secret_key
         self.translate_id = translate_id
-        self.signals = Signals()
+        self.signals = signals
 
     def run(self):
         try:
@@ -46,12 +47,13 @@ class TranslateRunnable(QRunnable):
 
 
 class DefinitionRunnable(QRunnable):
-    def __init__(self, text, api_key, definition_id):
+    def __init__(self, text, api_key, definition_id, signals):
         super().__init__()
+        self.setAutoDelete(False)
         self.text = text
         self.api_key = api_key
         self.definition_id = definition_id
-        self.signals = Signals()
+        self.signals = signals
 
     def run(self):
         try:
@@ -62,11 +64,12 @@ class DefinitionRunnable(QRunnable):
 
 
 class CalculateRunnable(QRunnable):
-    def __init__(self, calculate_equation, calculate_id):
+    def __init__(self, calculate_equation, calculate_id, signals):
         super().__init__()
+        self.setAutoDelete(False)
         self.calculate_equation = calculate_equation
         self.calculate_id = calculate_id
-        self.signals = Signals()
+        self.signals = signals
         self.calculate_timeout = 2
 
     def run(self):
