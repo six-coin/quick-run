@@ -374,6 +374,9 @@ class SearchWindow(QMainWindow):
         self.execute_operation(self.filtered_operations[self.selected_index])
 
     def execute_operation(self, operation):
+        if self.is_showing or self.is_hiding:
+            return
+
         key_pressed = []
         modifiers = QApplication.keyboardModifiers()
         if modifiers & Qt.KeyboardModifier.ControlModifier:

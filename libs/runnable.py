@@ -12,6 +12,8 @@ from libs import ai
 from libs import log
 from libs import text_to_speech
 
+_PROGRAM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 class Signals(QObject):
     success = Signal(list)
@@ -116,7 +118,7 @@ class OpenFileRunnable(QRunnable):
                 continue
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 file_cwd = os.path.dirname(file_path)
-                original_cwd = os.getcwd()
+                original_cwd = _PROGRAM_DIR
                 try:
                     os.chdir(file_cwd)
                     if self.no_window:
