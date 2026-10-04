@@ -233,12 +233,15 @@ class DefinitionOperation(InternalOperation):
 
 
 class ExploreOperation(InternalOperation):
-    def __init__(self, entry, window):
+    def __init__(self, entry, window, index=None):
         super().__init__(window)
         self.type = "explore"
         self.entry = entry
         prefix = "文件夹：" if entry.is_dir else "文件："
-        self.display = f"{prefix}{entry.name}"
+        if index is None:
+            self.display = f"{prefix}{entry.name}"
+        else:
+            self.display = f"[{index}] {prefix}{entry.name}"
 
     def execute(self, key_pressed):
         if self.entry.is_dir:

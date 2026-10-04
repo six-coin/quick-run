@@ -61,6 +61,14 @@ def _scan_dir(path: str, current_depth: int, max_depth: int) -> DirEntry:
     except (PermissionError, OSError):
         return root
 
+    visible_count = 0
+    for entry_name in entries:
+        if not entry_name.startswith("."):
+            visible_count += 1
+    if visible_count > _MAX_DIR_ITEMS:
+        root._too_many = True
+        return root
+
     dirs = []
     files = []
     for entry_name in entries:
@@ -115,6 +123,13 @@ def scan_root(root_path: str, explore_depth: int) -> Optional[DirEntry]:
         return None
 
 
+def _match_pos(entry: DirEntry, lower: str) -> int:
+    pos = entry.name.lower().find(lower)
+    if pos >= 0:
+        return pos
+    return entry.pinyin.find(lower)
+
+
 def filter_entries(entries: list[DirEntry], filter_text: str) -> list[DirEntry]:
     if not filter_text:
         return list(entries)
@@ -123,6 +138,7 @@ def filter_entries(entries: list[DirEntry], filter_text: str) -> list[DirEntry]:
     for e in entries:
         if lower in e.name.lower() or lower in e.pinyin:
             result.append(e)
+    result.sort(key=lambda e: _match_pos(e, lower))
     return result
 
 
@@ -142,6 +158,25 @@ def _parse_token(token: str) -> tuple[str, Optional[int]]:
         return filter_text, -1
 
 
+def _tokenize_nav(nav_text: str) -> list[tuple[str, int]]:
+    levels = []
+    i = 0
+    n = len(nav_text)
+    while i < n and nav_text[i] == " ":
+        i += 1
+    while i < n:
+        start = i
+        while i < n and nav_text[i] != " ":
+            i += 1
+        token = nav_text[start:i]
+        spaces = 0
+        while i < n and nav_text[i] == " ":
+            i += 1
+            spaces += 1
+        levels.append((token, spaces))
+    return levels
+
+
 class ExploreResult:
     __slots__ = ("entries", "error")
 
@@ -150,68 +185,67 @@ class ExploreResult:
         self.error: Optional[str] = error
 
 
-def navigate(root: DirEntry, nav_text: str, explore_depth: int) -> ExploreResult:
-    trailing_space = nav_text.endswith(" ")
-    stripped = nav_text.strip()
-    tokens = stripped.split(" ") if stripped else []
+def _list_children(node: DirEntry) -> ExploreResult:
+    if node._too_many:
+        return ExploreResult(error="该文件夹内项目过多")
+    if not node.children:
+        return ExploreResult(error="文件夹中没有任何项目")
+    return ExploreResult(entries=list(node.children))
 
-    if not tokens:
-        if not root.children:
-            return ExploreResult(error="文件夹中没有任何项目")
-        return ExploreResult(entries=list(root.children))
+
+def navigate(root: DirEntry, nav_text: str, explore_depth: int) -> ExploreResult:
+    levels = _tokenize_nav(nav_text)
+
+    if not levels:
+        return _list_children(root)
 
     current = root
     nav_depth = 0
 
-    for i, token in enumerate(tokens):
-        is_last = (i == len(tokens) - 1)
+    for i, (token, spaces) in enumerate(levels):
+        is_last = (i == len(levels) - 1)
         filter_text, number = _parse_token(token)
 
         if number == -1:
             return ExploreResult(error="未知序号")
+
+        if current._too_many:
+            return ExploreResult(error="该文件夹内项目过多")
 
         matches = filter_entries(current.children, filter_text)
         if not matches:
             return ExploreResult(error="没有搜索到指定的项目")
 
         if number is not None:
-            if number > len(matches):
-                return ExploreResult(error="未知序号")
-            item = matches[number - 1]
-
-            if is_last and not trailing_space:
-                return ExploreResult(entries=[item])
-
-            if not item.is_dir:
-                return ExploreResult(error="没有指定的文件夹")
-
-            if nav_depth >= explore_depth:
-                return ExploreResult(error="搜索已达深度上限")
-
-            current = item
-            nav_depth += 1
-
-            if is_last and trailing_space:
-                if not current.children:
-                    return ExploreResult(error="文件夹中没有任何项目")
-                return ExploreResult(entries=list(current.children))
+            index = number
+        elif spaces > 0:
+            index = spaces
         else:
-            if is_last and not trailing_space:
-                return ExploreResult(entries=matches)
+            index = None
 
-            first = matches[0]
-            if not first.is_dir:
-                return ExploreResult(error="没有指定的文件夹")
+        if is_last and spaces == 0 and index is None:
+            return ExploreResult(entries=matches)
 
-            if nav_depth >= explore_depth:
-                return ExploreResult(error="搜索已达深度上限")
+        if index is None:
+            index = 1
 
-            current = first
-            nav_depth += 1
+        if index > len(matches):
+            return ExploreResult(error="未知序号")
+        item = matches[index - 1]
 
-            if is_last and trailing_space:
-                if not current.children:
-                    return ExploreResult(error="文件夹中没有任何项目")
-                return ExploreResult(entries=list(current.children))
+        if is_last and spaces == 0:
+            return ExploreResult(entries=[item])
+
+        if not item.is_dir:
+            return ExploreResult(error="没有指定的文件夹")
+
+        if nav_depth >= explore_depth:
+            return ExploreResult(error="搜索已达深度上限")
+
+        current = item
+        nav_depth += 1
+
+        if is_last and spaces > 0:
+            return _list_children(current)
 
     return ExploreResult(error="文件夹中没有任何项目")

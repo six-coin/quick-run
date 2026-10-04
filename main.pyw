@@ -267,8 +267,8 @@ class SearchWindow(QMainWindow):
                 if result.error:
                     self.filtered_operations.append(ops.ErrorOperation(result.error, self))
                 else:
-                    for entry in result.entries:
-                        self.filtered_operations.append(ops.ExploreOperation(entry, self))
+                    for index, entry in enumerate(result.entries, 1):
+                        self.filtered_operations.append(ops.ExploreOperation(entry, self, index))
                 self.update_result_list()
                 return
 

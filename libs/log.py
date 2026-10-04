@@ -15,7 +15,7 @@ def init(prefix=None):
     write(f"已初始化日志文件：{log_file_path}", 3)
 
 
-def write(log_content, log_level):
+def write(log_content, log_level, safe_execute=False):
     if log_file_path == pathlib.Path(""):
         return
     if not log_file_path.exists():
@@ -27,10 +27,12 @@ def write(log_content, log_level):
         with open(log_file_path, "a", encoding="utf-8") as file_content:
             file_content.write(write_content)
     except Exception as e:
-        error(f"写入日志时发生错误：{e}")
+        if not safe_execute:
+            error(f"写入日志时发生错误：{e}")
 
 
 def error(error_message):
+    write(error_message, 0, True)
     crash_report = ("cmd /c echo ========崩溃报告======== &"
                     "echo 程序在运行中出现错误，无法继续执行 &"
                     f"echo 当前时间：{_get_time()} &"
