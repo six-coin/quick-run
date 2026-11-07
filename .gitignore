@@ -9,6 +9,13 @@ wheels/
 # Virtual environments
 .venv/
 .idea/
+
+# User data (private, never committed)
 logs/
 custom/
 config/
+
+# Local scratch
+*.tmp
+old/
+docs/

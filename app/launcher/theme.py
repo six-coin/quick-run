@@ -1,8 +1,10 @@
-search_container = """QFrame {
+"""Qt stylesheets for the launcher (ported 1:1 from the old style_sheets.py)."""
+
+SEARCH_CONTAINER = """QFrame {
     background-color: transparent;
 }"""
 
-search_input_widget = """QLineEdit {
+SEARCH_INPUT = """QLineEdit {
     border: 2px solid #0066cc;
     border-radius: 8px;
     padding: 10px 14px;
@@ -11,11 +13,11 @@ search_input_widget = """QLineEdit {
     font-size: 17px;
 }"""
 
-list_container = """QWidget {
+LIST_CONTAINER = """QWidget {
     background-color: transparent;
 }"""
 
-result_list_widget = """QListWidget {
+RESULT_LIST = """QListWidget {
     border: 0px;
     background-color: transparent;
     font-size: 16px;
@@ -38,7 +40,7 @@ QListWidget::item:hover:!selected {
     background-color: rgba(188, 230, 255, 215);
 }"""
 
-central_widget = """QWidget {
+CENTRAL_WIDGET = """QWidget {
     border: 0px solid transparent;
     margin: 0px;
     padding: 0px;

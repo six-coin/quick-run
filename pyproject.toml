@@ -1,14 +1,26 @@
 [project]
 name = "fast-run"
-version = "1.0.0"
+version = "2.0.0"
 description = "Allow users to run files quickly."
-readme = ""
 requires-python = ">=3.11"
 dependencies = [
-    "PySide6==6.11.1",
-    "requests==2.34.2",
-    "pyperclip==1.11.0",
-    "python-vlc==3.0.21203",
-    "pywin32==311",
-    "pypinyin>=0.44.0"
+    "PySide6>=6.6",
+    "pywebview>=5.0",
+    "loguru>=0.7",
+    "requests>=2.31",
+    "pyperclip>=1.8",
+    "pypinyin>=0.44",
+    "pywin32>=306",
+    "python-vlc>=3.0",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

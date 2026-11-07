@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast Run 操作管理器</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <header class="sidebar-head">
+      <div class="titles">
+        <h1>Fast Run 操作管理器</h1>
+        <p id="count-label">0 项</p>
+      </div>
+      <span id="dirty-badge" class="dirty hidden">未保存</span>
+    </header>
+
+    <div class="search">
+      <svg class="search-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="6.8" cy="6.8" r="4.6"></circle>
+        <path d="M10.4 10.4L14 14"></path>
+      </svg>
+      <input id="filter" type="text" placeholder="搜索名称或关键词" autocomplete="off" spellcheck="false">
+      <button type="button" id="filter-clear" class="search-clear hidden" title="清除">×</button>
+    </div>
+
+    <div id="list" class="list"></div>
+
+    <footer class="sidebar-foot">
+      <div class="foot-row">
+        <button type="button" id="btn-add" class="btn ghost">添加操作</button>
+        <button type="button" id="btn-add-group" class="btn ghost">新建分组</button>
+        <button type="button" id="btn-help" class="btn ghost">帮助</button>
+      </div>
+      <button type="button" id="btn-save" class="btn primary block">
+        <span>保存文件</span><kbd>Ctrl S</kbd>
+      </button>
+    </footer>
+  </aside>
+
+  <main class="detail">
+    <div id="placeholder" class="placeholder">
+      <svg class="placeholder-art" viewBox="0 0 96 96" aria-hidden="true">
+        <rect x="14" y="20" width="68" height="56" rx="12"></rect>
+        <path d="M14 34h68"></path>
+        <path d="M30 48h20M30 60h36"></path>
+      </svg>
+      <h2>还没有选择内容</h2>
+      <p>从左侧挑一个操作或分组，或者新建一条。</p>
+      <button type="button" class="btn primary" id="btn-add-empty">添加操作</button>
+    </div>
+
+    <section id="group-editor" class="editor hidden">
+      <header class="editor-head">
+        <div class="editor-title">
+          <h2 id="group-title">分组</h2>
+          <p id="group-sub" class="hint">0 条操作</p>
+        </div>
+        <div class="editor-tools">
+          <button type="button" id="btn-group-up" class="btn">上移</button>
+          <button type="button" id="btn-group-down" class="btn">下移</button>
+        </div>
+      </header>
+
+      <div class="card">
+        <div class="field">
+          <label for="f-group-name">分组名称</label>
+          <input id="f-group-name" type="text" placeholder="例如：工作、学习、游戏">
+        </div>
+
+        <label class="switch">
+          <input id="f-group-enabled" type="checkbox">
+          <span class="switch-track"></span>
+          <span class="switch-label">启用该分组</span>
+        </label>
+        <p class="hint">关闭后，这一组的操作不会出现在启动器里，配置仍然保留。</p>
+
+        <div class="group-actions">
+          <button type="button" id="btn-group-add-op" class="btn">在该组添加操作</button>
+          <button type="button" id="btn-group-delete" class="btn danger-ghost">删除该分组</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="editor" class="editor hidden">
+      <header class="editor-head">
+        <div class="editor-title">
+          <h2 id="editor-name">未命名操作</h2>
+          <div class="meta">
+            <span id="editor-type" class="chip">打开文件</span>
+            <span id="editor-keywords" class="meta-text">无匹配字串</span>
+          </div>
+        </div>
+        <div class="editor-tools">
+          <button type="button" id="btn-up" class="btn">上移</button>
+          <button type="button" id="btn-down" class="btn">下移</button>
+        </div>
+      </header>
+
+      <div class="card">
+        <div class="grid">
+          <div class="field span-2">
+            <label for="f-display">显示名称</label>
+            <input id="f-display" type="text" placeholder="在结果列表里显示的文字" autocomplete="off">
+          </div>
+
+          <div class="field span-2">
+            <label>运行方式</label>
+            <div id="type-pills" class="pills"></div>
+          </div>
+
+          <div class="field span-2">
+            <label for="f-keywords">匹配字串</label>
+            <input id="f-keywords" type="text" placeholder="leidian|ld" autocomplete="off" spellcheck="false">
+            <p class="hint">只允许小写字母 <code>a-z</code> 与 <code>|</code>；保存时会自动去掉多余的分隔符。</p>
+          </div>
+
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="arg-panel" data-type="file">
+          <div class="field">
+            <label for="f-path">文件路径</label>
+            <div class="inline">
+              <input id="f-path" data-arg="path" type="text" placeholder="C:\Program Files\App\app.exe" spellcheck="false">
+              <button type="button" class="btn" data-browse="file">浏览</button>
+            </div>
+          </div>
+          <label class="switch">
+            <input id="f-no-window" data-arg="no_window" type="checkbox">
+            <span class="switch-track"></span>
+            <span class="switch-label">无窗口运行</span>
+          </label>
+          <p class="hint">勾选后不弹出命令行窗口，适合 .py / .bat 脚本。</p>
+        </div>
+
+        <div class="arg-panel" data-type="dir">
+          <div class="field">
+            <label for="f-dir">文件夹路径</label>
+            <div class="inline">
+              <input id="f-dir" data-arg="dir" type="text" placeholder="E:\Play" spellcheck="false">
+              <button type="button" class="btn" data-browse="dir">浏览</button>
+            </div>
+          </div>
+          <label class="switch">
+            <input id="f-allow-explore" data-arg="allow_explore" type="checkbox">
+            <span class="switch-track"></span>
+            <span class="switch-label">允许浏览子文件夹</span>
+          </label>
+          <div class="field" id="row-depth">
+            <label for="f-depth">探索深度</label>
+            <input id="f-depth" data-arg="explore_depth" type="text" inputmode="numeric" placeholder="0">
+            <p class="hint">0 只列根目录，最大 5；单目录超过 100 项不会展开。</p>
+          </div>
+        </div>
+
+        <div class="arg-panel" data-type="url">
+          <div class="field">
+            <label for="f-url">网页地址</label>
+            <input id="f-url" data-arg="url" type="text" placeholder="https://example.com" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="arg-panel" data-type="cmd">
+          <div class="field">
+            <label for="f-command">执行命令</label>
+            <input id="f-command" data-arg="command" type="text" placeholder="shutdown \a" spellcheck="false">
+            <p class="hint">在程序目录下用命令行执行，会弹出控制台窗口。</p>
+          </div>
+        </div>
+
+        <div class="arg-panel" data-type="debug">
+          <div class="field">
+            <label>调试功能</label>
+            <div id="f-function" class="select" data-value="restart" tabindex="0" role="listbox" aria-label="调试功能">
+              <span class="select-value">重启程序</span>
+              <svg class="select-arrow" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.5 4.5L6 8l3.5-3.5"></path>
+              </svg>
+              <div class="select-menu"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="group-actions">
+        <button type="button" id="btn-delete-op" class="btn danger-ghost">删除该操作</button>
+        <button type="button" id="btn-move-group" class="btn">切换到组</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="modal-help" class="modal hidden">
+  <div class="modal-card">
+    <header class="modal-head">
+      <h2>使用帮助</h2>
+      <button type="button" class="icon-btn" data-close="modal-help" title="关闭">×</button>
+    </header>
+    <div id="help-body" class="modal-body"></div>
+  </div>
+</div>
+
+<div id="modal-confirm" class="modal hidden">
+  <div class="modal-card narrow">
+    <header class="modal-head">
+      <h2 id="confirm-title">确认</h2>
+    </header>
+    <p id="confirm-text" class="modal-text"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="btn-confirm-cancel">取消</button>
+      <button type="button" class="btn danger" id="btn-confirm-ok">删除</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-group" class="modal hidden">
+  <div class="modal-card narrow">
+    <header class="modal-head">
+      <h2>切换到分组</h2>
+      <button type="button" class="icon-btn" data-close="modal-group" title="关闭">×</button>
+    </header>
+    <div id="group-picker" class="picker"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
