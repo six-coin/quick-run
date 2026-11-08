@@ -239,39 +239,46 @@
     }
   }
 
-  function renderOptions(data) {
-    const pills = $('type-pills');
-    if (pills.childElementCount === 0) {
-      data.types.forEach(function (item) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'pill';
-        button.dataset.type = item.value;
-        button.textContent = item.label;
-        button.addEventListener('click', function () {
-          changeType(item.value);
-        });
-        pills.appendChild(button);
-      });
+  /**
+   * 把「值 + 文案」列表就地同步到一组按钮上。
+   *
+   * 这些选项的文案来自后端，切换语言后会变；但如果每次状态刷新都重建 DOM，
+   * 正在聚焦的按钮会丢焦点。所以按序号复用节点，只更新 dataset 与文案。
+   */
+  function syncChoices(container, items, key, setup) {
+    items.forEach(function (item, index) {
+      let node = container.children[index];
+      if (!node) {
+        node = document.createElement('button');
+        node.type = 'button';
+        setup(node);
+        container.appendChild(node);
+      }
+      node.dataset[key] = item.value;
+      node.textContent = item.label;
+    });
+    while (container.childElementCount > items.length) {
+      container.lastElementChild.remove();
     }
+  }
 
-    const functionSelect = $('f-function');
-    const menu = functionSelect.querySelector('.select-menu');
-    if (menu.childElementCount === 0) {
-      data.debug_functions.forEach(function (item) {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'select-option';
-        option.dataset.value = item.value;
-        option.textContent = item.label;
-        option.setAttribute('role', 'option');
-        option.addEventListener('click', function (event) {
-          event.stopPropagation();
-          chooseFunction(item.value);
-        });
-        menu.appendChild(option);
+  function renderOptions(data) {
+    syncChoices($('type-pills'), data.types, 'type', function (button) {
+      button.className = 'pill';
+      button.addEventListener('click', function () {
+        changeType(button.dataset.type);
       });
-    }
+    });
+
+    const menu = $('f-function').querySelector('.select-menu');
+    syncChoices(menu, data.debug_functions, 'value', function (option) {
+      option.className = 'select-option';
+      option.setAttribute('role', 'option');
+      option.addEventListener('click', function (event) {
+        event.stopPropagation();
+        chooseFunction(option.dataset.value);
+      });
+    });
   }
 
   function renderGroups() {
