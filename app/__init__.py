@@ -1,3 +1,3 @@
-"""Fast Run application package."""
+"""Fast Run 应用包。"""
 
 __version__ = "2.0.0"

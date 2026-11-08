@@ -64,7 +64,7 @@ def test_calculation_error_is_rendered():
     rows = make_resolver([]).resolve("1/0").rows
     assert rows[0].kind is RowKind.CALCULATE
     assert rows[0].status is RowStatus.FAILED
-    assert rows[0].text == "计算：division by zero"
+    assert rows[0].text == "计算：不能除以零"
 
 
 def test_async_calculation_is_pending():
@@ -171,3 +171,11 @@ def test_indexed_directory_operation_enters_navigation(tmp_path):
     rows = make_resolver([dir_op(tmp_path)]).resolve("play#1 ").rows
 
     assert rows[0].text == "[1] 文件夹：sub"
+
+
+def test_trailing_hash_is_ignored():
+    resolver = make_resolver([file_op()])
+    with_hash = [row.text for row in resolver.resolve("exc#").rows]
+    without = [row.text for row in resolver.resolve("exc").rows]
+    assert with_hash == without
+    assert with_hash == ["Excel"]

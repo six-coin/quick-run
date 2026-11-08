@@ -1,4 +1,4 @@
-"""Operation catalog: prefix matching and directory-explore lookup."""
+"""操作目录：前缀匹配与文件夹浏览用的查找。"""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ from app.models import Operation, OperationType
 
 
 class Catalog:
-    """Read-only view over the configured operations.
+    """已配置操作之上的只读视图。
 
-    Matching rules are inherited from the old ``filter_operations``:
+    匹配规则沿用旧的 ``filter_operations``：
 
-    * ``dir`` operations normalise both keyword and query to ``[a-z0-9]``;
-    * every other type compares the raw keyword with ``startswith``;
-    * keywords are separated by ``|``.
+    * ``dir`` 类型会把关键词和查询都压成 ``[a-z0-9]`` 再比；
+    * 其他类型直接用原始关键词做 ``startswith``；
+    * 多个关键词用 ``|`` 分隔。
     """
 
     def __init__(self, operations: list[Operation]) -> None:
@@ -49,7 +49,7 @@ class Catalog:
         return matched
 
     def explore_operation(self, token: str) -> Operation | None:
-        """First explorable directory operation whose keyword prefixes ``token``."""
+        """第一个关键词能前缀匹配 ``token`` 且允许浏览的文件夹操作。"""
         normalized = normalize_alnum(token)
         if not normalized:
             return None

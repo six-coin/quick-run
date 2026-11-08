@@ -1,1 +1,1 @@
-"""Qt launcher (the Alt+Space popup)."""
+"""Qt 启动器（Alt+Space 弹窗）。"""

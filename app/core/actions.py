@@ -1,10 +1,8 @@
-"""Action execution: turns a :class:`ResultRow` into a side effect.
+"""动作执行：把一条 :class:`ResultRow` 变成真正的副作用。
 
-Everything OS specific is injected through small protocols, so this module can
-be unit tested without spawning a single process. In particular it never
-changes the process working directory: the target directory is always passed
-explicitly to the opener (that was the root cause of the stray ``logs/``
-folders).
+所有和系统相关的东西都通过小协议注入，所以这个模块不启动任何进程也能做单元
+测试。它尤其不会修改进程的工作目录：目标目录永远以参数形式交给启动器——
+旧版本在磁盘各处生成 ``logs`` 文件夹的根因就在这里。
 """
 
 from __future__ import annotations
@@ -54,8 +52,10 @@ class Speech(Protocol):
 
 
 class ActionExecutor:
-    """Executes a row. Copying to the clipboard is the caller's job, because the
-    outcome carries the text that should be copied."""
+    """执行一条结果行。
+
+    复制到剪贴板由调用方完成，因为执行结果里只带“应该被复制的文本”。
+    """
 
     def __init__(self, opener: Opener, speech: Speech) -> None:
         self._opener = opener
@@ -77,7 +77,7 @@ class ActionExecutor:
             return ActionOutcome(hide=True)
         return handler(row, modifiers)
 
-    # -- handlers ---------------------------------------------------------
+    # -- 各类结果行的处理 ---------------------------------------------------
     def _external(self, row: ResultRow, modifiers: Modifiers) -> ActionOutcome:
         operation: Operation = row.payload
 
@@ -104,7 +104,7 @@ class ActionExecutor:
         no_window = bool(operation.arguments.get("no_window", False))
         for path in paths.split_paths(str(operation.arguments.get("path", ""))):
             if modifiers.any:
-                # Ctrl/Shift/Alt held: reveal the containing folder instead.
+                # 按住 Ctrl / Shift / Alt 时改成打开所在文件夹。
                 self._opener.open_dir(path.parent)
                 continue
             if path.is_file():
@@ -133,7 +133,7 @@ class ActionExecutor:
         return ActionOutcome(hide=True)
 
     def _copyable(self, row: ResultRow, _modifiers: Modifiers) -> ActionOutcome:
-        """Calculate / definition rows: copy the finished value, else stay open."""
+        """计算和查词行：算完了就复制并收起，没算完就保持打开。"""
         if row.status is RowStatus.DONE and row.value is not None:
             return ActionOutcome(hide=True, clipboard_text=row.value)
         return ActionOutcome(hide=False)

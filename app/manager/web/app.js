@@ -3,6 +3,7 @@
 
   const $ = (id) => document.getElementById(id);
 
+  // 字段名到输入框 id 的映射，用于把校验错误标到正确的控件上。
   const FIELD_INPUTS = {
     display: 'f-display',
     keywords: 'f-keywords',
@@ -12,21 +13,28 @@
     command: 'f-command',
   };
 
+  const MODAL_EXIT_MS = 170;
+
   const state = {
     data: null,
+    settings: null,
+    strings: {},
+    language: 'zh',
     filter: '',
     collapsed: new Set(),
     dragging: null,
     bound: false,
     lastSelection: '',
     suppressClickUntil: 0,
+    modal: null,
   };
 
   const pending = new Map();
+  const modalTimers = new Map();
   let toastTimer = null;
   let confirmAction = null;
 
-  // -- bridge -------------------------------------------------------------
+  // -- 桥接 ---------------------------------------------------------------
   function bridge() {
     return window.pywebview && window.pywebview.api ? window.pywebview.api : null;
   }
@@ -39,12 +47,61 @@
       return await api[method].apply(api, args);
     } catch (error) {
       console.error(method, error);
-      toast('操作失败：' + error, false);
+      toast(T('manager.action_failed', { error: error }), false);
       return null;
     }
   }
 
-  // -- deferred edits -----------------------------------------------------
+  // -- 文案 ---------------------------------------------------------------
+  function T(key, params) {
+    const text = state.strings[key];
+    if (text === undefined) return key;
+    if (!params) return text;
+    return text.replace(/\{(\w+)\}/g, function (match, name) {
+      return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : match;
+    });
+  }
+
+  async function loadStrings() {
+    const payload = await call('get_strings');
+    if (!payload) return;
+    state.strings = payload.strings || {};
+    state.language = payload.language || 'zh';
+  }
+
+  /** 把静态标记上的文案全部换成当前语言。 */
+  function applyStrings() {
+    document.querySelectorAll('[data-i18n]').forEach(function (element) {
+      element.textContent = T(element.dataset.i18n);
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function (element) {
+      element.placeholder = T(element.dataset.i18nPlaceholder);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function (element) {
+      element.title = T(element.dataset.i18nTitle);
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (element) {
+      element.setAttribute('aria-label', T(element.dataset.i18nAria));
+    });
+
+    document.title = T('manager.title');
+    document.documentElement.lang = state.language === 'zh' ? 'zh-CN' : 'en';
+    $('list').setAttribute('aria-label', T('manager.list_label'));
+    $('f-function').setAttribute('aria-label', T('manager.debug_function'));
+
+    renderDepthHint();
+    renderSettingsHints();
+  }
+
+  function renderDepthHint() {
+    const navigation = state.data ? state.data.navigation : { max_depth: 5, max_entries: 100 };
+    $('depth-hint').textContent = T('manager.depth_hint', {
+      max: navigation.max_depth,
+      max_entries: navigation.max_entries,
+    });
+  }
+
+  // -- 延迟写入 -----------------------------------------------------------
   function queue(key, exec, delay) {
     const existing = pending.get(key);
     if (existing) clearTimeout(existing.timer);
@@ -67,7 +124,7 @@
     await Promise.all(jobs);
   }
 
-  // -- helpers ------------------------------------------------------------
+  // -- 取值助手 -----------------------------------------------------------
   function selection() {
     return state.data ? state.data.selection : { kind: 'none', group: 0, index: 0 };
   }
@@ -93,7 +150,7 @@
         return part.trim();
       })
       .filter(Boolean);
-    return parts.length ? parts.join(' · ') : '无匹配字串';
+    return parts.length ? parts.join(' · ') : T('manager.no_keywords');
   }
 
   function matches(operation, needle) {
@@ -136,20 +193,26 @@
     element.style.animation = '';
   }
 
-  function chevron() {
+  function svgIcon(pathData, className) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'chevron');
+    if (className) svg.setAttribute('class', className);
     svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('aria-hidden', 'true');
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M4 6l4 4 4-4');
+    path.setAttribute('d', pathData);
     svg.appendChild(path);
     return svg;
   }
 
-  // -- rendering ----------------------------------------------------------
+  // -- 渲染 ---------------------------------------------------------------
   function apply(data) {
     if (!data) return;
     state.data = data;
+
+    if (data.theme && document.documentElement.dataset.theme !== data.theme) {
+      document.documentElement.dataset.theme = data.theme;
+      rememberTheme(data.theme);
+    }
 
     renderOptions(data);
     renderGroups();
@@ -165,6 +228,14 @@
       focusField(data.errors[0].field);
     }
     if (data.message) toast(data.message, data.ok);
+  }
+
+  function rememberTheme(theme) {
+    try {
+      localStorage.setItem('fastrunTheme', theme);
+    } catch (error) {
+      /* 隐私模式下写不进去也无所谓，只影响首帧 */
+    }
   }
 
   function renderOptions(data) {
@@ -192,6 +263,7 @@
         option.className = 'select-option';
         option.dataset.value = item.value;
         option.textContent = item.label;
+        option.setAttribute('role', 'option');
         option.addEventListener('click', function (event) {
           event.stopPropagation();
           chooseFunction(item.value);
@@ -203,6 +275,10 @@
 
   function renderGroups() {
     const list = $('list');
+    // 记住焦点：每次状态变化都会重建这个子树。
+    const active = document.activeElement;
+    const activeId = active && list.contains(active) ? active.dataset.focusId : null;
+
     list.innerHTML = '';
     if (!state.data) return;
 
@@ -210,27 +286,50 @@
     if (!entries.length) {
       const empty = document.createElement('div');
       empty.className = 'list-empty';
-      empty.textContent = state.filter ? '没有匹配的操作' : '还没有任何操作';
+      empty.textContent = state.filter ? T('manager.no_match') : T('manager.no_operations');
       list.appendChild(empty);
+      list.appendChild(renderAddGroupRow());
       return;
     }
 
     const sel = selection();
     entries.forEach(function (entry) {
       const group = entry.group;
+      const collapsed = state.collapsed.has(group.name);
       const section = document.createElement('section');
       section.className = 'group';
       section.dataset.group = String(group.index);
       if (!group.enabled) section.classList.add('disabled');
-      if (state.collapsed.has(group.name)) section.classList.add('collapsed');
+      if (collapsed) section.classList.add('collapsed');
 
       const head = document.createElement('div');
       head.className = 'group-head';
       head.dataset.group = String(group.index);
+      head.dataset.node = 'group';
+      head.dataset.focusId = 'head:' + group.index;
       head.draggable = !state.filter;
+      head.tabIndex = -1;
+      head.setAttribute('role', 'treeitem');
+      head.setAttribute('aria-level', '1');
+      head.setAttribute('aria-expanded', String(!collapsed));
+      head.setAttribute('aria-owns', 'ops-' + group.index);
       if (sel.kind === 'group' && sel.group === group.index) head.classList.add('active');
 
-      head.appendChild(chevron());
+      // 折叠箭头做成真正的按钮，它才有资格带悬浮提示；键盘操作用左右方向键，
+      // 所以不占用 Tab 停靠点。
+      const chevron = document.createElement('button');
+      chevron.type = 'button';
+      chevron.className = 'chevron-btn';
+      chevron.tabIndex = -1;
+      chevron.title = T('manager.expand_group');
+      chevron.setAttribute('aria-label', T('manager.expand_group'));
+      chevron.appendChild(svgIcon('M4 6l4 4 4-4', 'chevron'));
+      chevron.addEventListener('click', function (event) {
+        event.stopPropagation();
+        toggleCollapse(group.name, section);
+        head.focus();
+      });
+      head.appendChild(chevron);
 
       const name = document.createElement('span');
       name.className = 'group-name';
@@ -242,12 +341,27 @@
       count.textContent = String(group.count);
       head.appendChild(count);
 
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'group-add';
+      add.dataset.focusId = 'add:' + group.index;
+      add.title = T('manager.add_to_group', { name: group.name });
+      add.setAttribute('aria-label', add.title);
+      add.appendChild(svgIcon('M8 3.5v9M3.5 8h9'));
+      add.addEventListener('click', function (event) {
+        event.stopPropagation();
+        addOperation(group.index);
+      });
+      head.appendChild(add);
+
       const toggle = document.createElement('label');
       toggle.className = 'switch mini';
-      toggle.title = group.enabled ? '关闭该分组' : '启用该分组';
+      toggle.title = group.enabled ? T('manager.toggle_on') : T('manager.toggle_off');
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = group.enabled;
+      checkbox.dataset.focusId = 'toggle:' + group.index;
+      checkbox.setAttribute('aria-label', T('manager.enable_group', { name: group.name }));
       checkbox.addEventListener('click', function (event) {
         event.stopPropagation();
       });
@@ -263,11 +377,7 @@
 
       head.addEventListener('click', function (event) {
         if (Date.now() < state.suppressClickUntil) return;
-        if (event.target.closest('.switch')) return;
-        if (event.target.closest('.chevron')) {
-          toggleCollapse(group.name, section);
-          return;
-        }
+        if (event.target.closest('.switch, .group-add, .chevron-btn')) return;
         call('select_group', group.index).then(apply);
       });
 
@@ -276,6 +386,9 @@
       const ops = document.createElement('ul');
       ops.className = 'group-ops';
       ops.dataset.group = String(group.index);
+      ops.id = 'ops-' + group.index;
+      ops.setAttribute('role', 'group');
+      ops.setAttribute('aria-label', group.name);
 
       entry.operations.forEach(function (operation) {
         ops.appendChild(renderOperation(operation, sel));
@@ -284,6 +397,71 @@
       section.appendChild(ops);
       list.appendChild(section);
     });
+
+    list.appendChild(renderAddGroupRow());
+    finishListRender(activeId);
+  }
+
+  /** 列表末尾的加号，和“新建分组”是同一件事。 */
+  function renderAddGroupRow() {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.id = 'btn-add-group-end';
+    button.className = 'list-add';
+    button.dataset.focusId = 'addgroup';
+    button.title = T('manager.add_group_end');
+    button.setAttribute('aria-label', T('manager.add_group_end'));
+    button.appendChild(svgIcon('M8 3.5v9M3.5 8h9'));
+    button.addEventListener('click', function () {
+      addGroup();
+    });
+    return button;
+  }
+
+  function listNodes() {
+    return Array.prototype.slice.call($('list').querySelectorAll('[data-node]'));
+  }
+
+  function focusNode(node) {
+    if (!node) return;
+    listNodes().forEach(function (other) {
+      other.tabIndex = other === node ? 0 : -1;
+    });
+    node.focus();
+  }
+
+  /**
+   * 整个列表只有一个 Tab 停靠点（roving tabindex），并把焦点放回重建前的
+   * 位置——每次选择都会重建列表，不恢复的话键盘操作会断掉。
+   */
+  function finishListRender(activeId) {
+    const list = $('list');
+    const nodes = listNodes();
+    if (!nodes.length) return;
+
+    let target = null;
+    if (activeId) {
+      const previous = list.querySelector('[data-focus-id="' + activeId + '"]');
+      if (previous && previous.dataset.node) target = previous;
+    }
+    if (!target) {
+      const sel = selection();
+      const key =
+        sel.kind === 'operation'
+          ? 'op:' + sel.group + ':' + sel.index
+          : 'head:' + sel.group;
+      target =
+        nodes.filter(function (node) {
+          return node.dataset.focusId === key;
+        })[0] || nodes[0];
+    }
+    nodes.forEach(function (node) {
+      node.tabIndex = node === target ? 0 : -1;
+    });
+
+    if (!activeId) return;
+    const element = list.querySelector('[data-focus-id="' + activeId + '"]');
+    if (element && element !== document.activeElement) element.focus();
   }
 
   function renderOperation(operation, sel) {
@@ -291,10 +469,18 @@
     item.className = 'item';
     item.dataset.group = String(operation.group);
     item.dataset.index = String(operation.index);
+    item.dataset.node = 'op';
+    item.dataset.focusId = 'op:' + operation.group + ':' + operation.index;
     item.draggable = !state.filter;
-    if (sel.kind === 'operation' && sel.group === operation.group && sel.index === operation.index) {
-      item.classList.add('selected');
-    }
+    item.tabIndex = -1;
+    item.setAttribute('role', 'treeitem');
+    item.setAttribute('aria-level', '2');
+    const selected =
+      sel.kind === 'operation' &&
+      sel.group === operation.group &&
+      sel.index === operation.index;
+    item.setAttribute('aria-selected', String(selected));
+    if (selected) item.classList.add('selected');
 
     const dot = document.createElement('span');
     dot.className = 'dot';
@@ -350,8 +536,9 @@
 
   function renderGroupEditor(group) {
     $('group-title').textContent = group.name;
-    $('group-sub').textContent =
-      group.count + ' 条操作' + (group.enabled ? '' : ' · 已关闭');
+    $('group-sub').textContent = group.enabled
+      ? T('manager.group_ops', { count: group.count })
+      : T('manager.group_ops_off', { count: group.count });
     $('f-group-name').value = group.name;
     $('f-group-enabled').checked = group.enabled;
     $('btn-group-up').disabled = group.index === 0;
@@ -395,7 +582,7 @@
 
   function renderDirty(dirty) {
     $('dirty-badge').classList.toggle('hidden', !dirty);
-    document.title = (dirty ? '• ' : '') + 'Fast Run 操作管理器';
+    document.title = (dirty ? '• ' : '') + T('manager.title');
   }
 
   function renderCount() {
@@ -409,11 +596,11 @@
 
     let text;
     if (state.filter && shown !== total) {
-      text = shown + ' / ' + total + ' 项';
+      text = T('manager.count_filtered', { shown: shown, total: total });
     } else {
-      text = total + ' 项 · ' + groups + ' 组';
+      text = T('manager.count', { total: total, groups: groups });
     }
-    if (enabled !== total) text += ' · ' + enabled + ' 启用';
+    if (enabled !== total) text += ' · ' + T('manager.count_enabled', { count: enabled });
     $('count-label').textContent = text;
   }
 
@@ -423,7 +610,7 @@
   }
 
   function updateLabel(group, index, text) {
-    const label = text || '未命名操作';
+    const label = text || T('manager.unnamed_operation');
     const item = document.querySelector(
       '.item[data-group="' + group + '"][data-index="' + index + '"] .item-title'
     );
@@ -484,32 +671,179 @@
     }, 2400);
   }
 
-  function showModal(id) {
-    $(id).classList.remove('hidden');
+  // -- 弹窗 ---------------------------------------------------------------
+  function openModal(id) {
+    const element = $(id);
+    if (!element) return;
+    const timer = modalTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      modalTimers.delete(id);
+    }
+    element.classList.remove('hidden', 'leaving');
+    void element.offsetWidth;
+    state.modal = id;
+    // 弹窗打开时背景整体不可交互，Tab 也就进不去了。
+    $('app').inert = true;
+    const card = element.querySelector('.modal-card');
+    if (card) card.focus();
   }
 
   function hideModal(id) {
-    $(id).classList.add('hidden');
+    const element = $(id);
+    if (!element || element.classList.contains('hidden')) return;
+    const timer = modalTimers.get(id);
+    if (timer) clearTimeout(timer);
+    element.classList.add('leaving');
+    const handle = setTimeout(function () {
+      modalTimers.delete(id);
+      element.classList.add('hidden');
+      element.classList.remove('leaving');
+      if (state.modal === id) {
+        state.modal = null;
+        $('app').inert = false;
+      }
+    }, MODAL_EXIT_MS);
+    modalTimers.set(id, handle);
+  }
+
+  /** 关闭弹窗，并释放它占着的状态。 */
+  function closeModal(id) {
+    hideModal(id);
+    if (id === 'modal-unsaved') call('answer_close', 'cancel');
+  }
+
+  function activeModal() {
+    return state.modal ? $(state.modal) : null;
+  }
+
+  function focusableIn(container) {
+    const selector =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    return Array.prototype.slice
+      .call(container.querySelectorAll(selector))
+      .filter(function (element) {
+        return !element.disabled && element.offsetParent !== null;
+      });
+  }
+
+  /** 把 Tab 限制在当前弹窗里循环。 */
+  function trapTab(event) {
+    const modal = activeModal();
+    if (!modal) return;
+    const items = focusableIn(modal);
+    if (!items.length) {
+      event.preventDefault();
+      return;
+    }
+    const first = items[0];
+    const last = items[items.length - 1];
+    const card = modal.querySelector('.modal-card');
+
+    if (event.shiftKey) {
+      if (document.activeElement === first || document.activeElement === card) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function askConfirm(title, text, action) {
     $('confirm-title').textContent = title;
     $('confirm-text').textContent = text;
     confirmAction = action;
-    showModal('modal-confirm');
+    openModal('modal-confirm');
   }
 
   function toggleCollapse(name, section) {
-    if (state.collapsed.has(name)) {
-      state.collapsed.delete(name);
-      section.classList.remove('collapsed');
+    const collapsed = !state.collapsed.has(name);
+    if (collapsed) state.collapsed.add(name);
+    else state.collapsed.delete(name);
+    section.classList.toggle('collapsed', collapsed);
+    const head = section.querySelector('.group-head');
+    if (head) head.setAttribute('aria-expanded', String(!collapsed));
+  }
+
+  function setGroupExpanded(group, expand) {
+    const section = document.querySelector('.group[data-group="' + group + '"]');
+    if (!section) return;
+    const collapsed = section.classList.contains('collapsed');
+    if (collapsed === expand) toggleCollapse(groupName(group), section);
+  }
+
+  function groupName(index) {
+    const group = state.data && state.data.groups[index];
+    return group ? group.name : '';
+  }
+
+  function activateNode(node) {
+    if (!node || !state.data) return;
+    if (node.dataset.node === 'group') {
+      call('select_group', Number(node.dataset.group)).then(apply);
     } else {
-      state.collapsed.add(name);
-      section.classList.add('collapsed');
+      call('select_operation', Number(node.dataset.group), Number(node.dataset.index)).then(
+        apply
+      );
     }
   }
 
-  // -- actions ------------------------------------------------------------
+  /** 侧栏的方向键导航：整个列表只占一个 Tab 停靠点。 */
+  function onListKeydown(event) {
+    const node = event.target.closest('[data-node]');
+    // 只有列表项本身获得焦点时才处理。加号、开关是独立控件，
+    // 它们自己的 Enter / 空格不能被这里吞掉。
+    if (!node || event.target !== node) return;
+
+    const nodes = listNodes();
+    const position = nodes.indexOf(node);
+
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        focusNode(nodes[position + 1]);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        focusNode(nodes[position - 1]);
+        break;
+      case 'Home':
+        event.preventDefault();
+        focusNode(nodes[0]);
+        break;
+      case 'End':
+        event.preventDefault();
+        focusNode(nodes[nodes.length - 1]);
+        break;
+      case 'ArrowRight':
+        event.preventDefault();
+        if (node.dataset.node === 'group') setGroupExpanded(Number(node.dataset.group), true);
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        if (node.dataset.node === 'group') {
+          setGroupExpanded(Number(node.dataset.group), false);
+        } else {
+          focusNode(
+            document.querySelector(
+              '.group-head[data-node="group"][data-group="' + node.dataset.group + '"]'
+            )
+          );
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        activateNode(node);
+        break;
+      default:
+        break;
+    }
+  }
+
+  // -- 动作 ---------------------------------------------------------------
   async function save() {
     await flushPending();
     const data = await call('save');
@@ -531,7 +865,7 @@
     $('filter').value = '';
     $('filter-clear').classList.add('hidden');
 
-    const data = await call('add_operation', group === undefined ? null : group);
+    const data = await call('add_operation', group);
     if (!data) return;
 
     const target = data.groups[data.selection.group];
@@ -543,6 +877,21 @@
       item.classList.add('flash');
       item.scrollIntoView({ block: 'nearest' });
     }
+    const input = $('f-display');
+    if (input && !$('editor').classList.contains('hidden')) input.focus();
+  }
+
+  async function addGroup() {
+    await flushPending();
+    state.filter = '';
+    $('filter').value = '';
+    $('filter-clear').classList.add('hidden');
+    apply(await call('add_group'));
+    const input = $('f-group-name');
+    if (input && !$('group-editor').classList.contains('hidden')) {
+      input.focus();
+      input.select();
+    }
   }
 
   function setFunctionValue(value) {
@@ -551,13 +900,16 @@
     select.dataset.value = value;
     select.querySelector('.select-value').textContent = option ? option.textContent : value;
     select.querySelectorAll('.select-option').forEach(function (item) {
-      item.classList.toggle('active', item.dataset.value === value);
+      const active = item.dataset.value === value;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
     });
   }
 
   async function chooseFunction(value) {
     const select = $('f-function');
     select.classList.remove('open');
+    select.setAttribute('aria-expanded', 'false');
     const operation = currentOperation();
     if (!operation) return;
     setFunctionValue(value);
@@ -580,12 +932,12 @@
       name.textContent = group.name;
       const count = document.createElement('span');
       count.className = 'picker-count';
-      count.textContent = group.count + ' 条';
+      count.textContent = T('manager.group_ops', { count: group.count });
 
       button.appendChild(name);
       button.appendChild(count);
       button.addEventListener('click', async function () {
-        hideModal('modal-group');
+        closeModal('modal-group');
         if (group.index === operation.group) return;
         await flushPending();
         apply(
@@ -601,10 +953,82 @@
       picker.appendChild(button);
     });
 
-    showModal('modal-group');
+    openModal('modal-group');
   }
 
-  // -- bindings -----------------------------------------------------------
+  // -- 设置 ---------------------------------------------------------------
+  async function openSettings() {
+    const settings = await call('get_settings');
+    if (!settings) return;
+    state.settings = settings;
+    renderSettings();
+    openModal('modal-settings');
+  }
+
+  function renderSettings() {
+    const settings = state.settings;
+    if (!settings) return;
+
+    const seg = $('set-language');
+    seg.innerHTML = '';
+    settings.languages.forEach(function (item) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'seg-item' + (item.value === settings.language ? ' active' : '');
+      button.textContent = item.label;
+      button.setAttribute('aria-pressed', String(item.value === settings.language));
+      button.addEventListener('click', function () {
+        chooseLanguage(item.value);
+      });
+      seg.appendChild(button);
+    });
+
+    $('set-depth').value = String(settings.max_depth);
+    $('set-entries').value = String(settings.max_entries);
+    $('set-appid').value = settings.translate_appid || '';
+    $('set-secret').value = settings.translate_secret || '';
+    $('set-ai').value = settings.ai_api_key || '';
+    renderSettingsHints();
+  }
+
+  function renderSettingsHints() {
+    if (!state.settings) return;
+    $('depth-limit-hint').textContent = T('settings.max_depth_hint', {
+      max: state.settings.max_depth_limit,
+    });
+  }
+
+  async function chooseLanguage(code) {
+    if (!state.settings || code === state.settings.language) return;
+    const data = await call('set_language', code);
+    if (!data) return;
+    await loadStrings();
+    state.settings.language = data.language;
+    applyStrings();
+    apply(data);
+    renderSettings();
+  }
+
+  function bindSettingInput(id, key, numeric) {
+    $(id).addEventListener('input', function (event) {
+      const raw = event.target.value;
+      queue(
+        'settings:' + key,
+        async function () {
+          const patch = {};
+          patch[key] = numeric ? Number(raw) || 0 : raw;
+          const data = await call('update_settings', patch);
+          if (!data) return;
+          if (state.data) state.data.navigation = data.navigation;
+          renderDepthHint();
+          if (state.settings) state.settings[key] = patch[key];
+        },
+        500
+      );
+    });
+  }
+
+  // -- 绑定 ---------------------------------------------------------------
   function bind() {
     if (state.bound) return;
     state.bound = true;
@@ -656,8 +1080,10 @@
       queue('group:name', function () {
         return call('set_group_name', group.index, value);
       });
-      const head = document.querySelector('.group-head[data-group="' + group.index + '"] .group-name');
-      if (head) head.textContent = value || '未命名分组';
+      const head = document.querySelector(
+        '.group-head[data-group="' + group.index + '"] .group-name'
+      );
+      if (head) head.textContent = value || T('manager.unnamed_operation');
       markDirty();
     });
 
@@ -669,13 +1095,11 @@
 
     document.querySelectorAll('[data-arg]').forEach(function (input) {
       const key = input.dataset.arg;
-      const eventName = input.tagName === 'SELECT' || input.type === 'checkbox' ? 'change' : 'input';
+      const eventName = input.type === 'checkbox' ? 'change' : 'input';
       input.addEventListener(eventName, function () {
         const operation = currentOperation();
         if (!operation) return;
-        let value;
-        if (input.type === 'checkbox') value = input.checked;
-        else value = input.value;
+        const value = input.type === 'checkbox' ? input.checked : input.value;
         input.classList.remove('invalid');
         queue('arg:' + key, function () {
           return call('set_argument', operation.group, operation.index, key, value);
@@ -708,35 +1132,35 @@
     const functionSelect = $('f-function');
     functionSelect.addEventListener('click', function (event) {
       event.stopPropagation();
-      functionSelect.classList.toggle('open');
+      const open = functionSelect.classList.toggle('open');
+      functionSelect.setAttribute('aria-expanded', String(open));
     });
     functionSelect.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        functionSelect.classList.toggle('open');
+        const open = functionSelect.classList.toggle('open');
+        functionSelect.setAttribute('aria-expanded', String(open));
       } else if (event.key === 'Escape') {
         functionSelect.classList.remove('open');
+        functionSelect.setAttribute('aria-expanded', 'false');
       }
     });
     document.addEventListener('click', function () {
       functionSelect.classList.remove('open');
+      functionSelect.setAttribute('aria-expanded', 'false');
     });
 
     $('btn-move-group').addEventListener('click', openGroupPicker);
 
-    $('btn-add').addEventListener('click', function () {
-      addOperation();
-    });
     $('btn-add-empty').addEventListener('click', function () {
-      addOperation();
+      addGroup();
     });
-    $('btn-add-group').addEventListener('click', async function () {
-      await flushPending();
-      apply(await call('add_group'));
+    $('btn-add-group').addEventListener('click', function () {
+      addGroup();
     });
     $('btn-group-add-op').addEventListener('click', function () {
       const group = currentGroup();
-      addOperation(group ? group.index : null);
+      if (group) addOperation(group.index);
     });
 
     $('btn-up').addEventListener('click', async function () {
@@ -771,8 +1195,8 @@
       const operation = currentOperation();
       if (!operation) return;
       askConfirm(
-        '删除操作',
-        '确定删除「' + operation.label + '」吗？该操作会从配置中移除。',
+        T('manager.delete_op_title'),
+        T('manager.delete_op_text', { name: operation.label }),
         async function () {
           await flushPending();
           apply(await call('delete_operation', operation.group, operation.index));
@@ -784,8 +1208,8 @@
       const group = currentGroup();
       if (!group || selection().kind !== 'group') return;
       askConfirm(
-        '删除分组',
-        '确定删除分组「' + group.name + '」吗？组内 ' + group.count + ' 条操作会一起被删除。',
+        T('manager.delete_group_title'),
+        T('manager.delete_group_text', { name: group.name, count: group.count }),
         async function () {
           await flushPending();
           apply(await call('delete_group', group.index));
@@ -801,8 +1225,39 @@
     });
     $('btn-confirm-cancel').addEventListener('click', function () {
       confirmAction = null;
-      hideModal('modal-confirm');
+      closeModal('modal-confirm');
     });
+
+    $('btn-unsaved-cancel').addEventListener('click', function () {
+      closeModal('modal-unsaved');
+    });
+    $('btn-unsaved-discard').addEventListener('click', function () {
+      hideModal('modal-unsaved');
+      call('answer_close', 'close');
+    });
+    $('btn-unsaved-save').addEventListener('click', async function () {
+      if (!(await save())) return;
+      hideModal('modal-unsaved');
+      call('answer_close', 'close');
+    });
+
+    $('btn-theme').addEventListener('click', async function () {
+      const root = document.documentElement;
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      rememberTheme(next);
+      await call('set_theme', next);
+    });
+
+    $('btn-settings').addEventListener('click', openSettings);
+    $('btn-settings-done').addEventListener('click', function () {
+      closeModal('modal-settings');
+    });
+    bindSettingInput('set-depth', 'max_depth', true);
+    bindSettingInput('set-entries', 'max_entries', true);
+    bindSettingInput('set-appid', 'translate_appid', false);
+    bindSettingInput('set-secret', 'translate_secret', false);
+    bindSettingInput('set-ai', 'ai_api_key', false);
 
     $('btn-save').addEventListener('click', function () {
       save();
@@ -811,17 +1266,23 @@
     $('btn-help').addEventListener('click', async function () {
       const html = await call('help_html');
       if (html) $('help-body').innerHTML = html;
-      showModal('modal-help');
+      openModal('modal-help');
     });
 
     document.querySelectorAll('[data-close]').forEach(function (button) {
       button.addEventListener('click', function () {
-        hideModal(button.dataset.close);
+        closeModal(button.dataset.close);
       });
     });
 
     document.addEventListener('keydown', function (event) {
       const modifier = event.ctrlKey || event.metaKey;
+
+      if (event.key === 'Tab') {
+        trapTab(event);
+        return;
+      }
+
       if (modifier && event.key.toLowerCase() === 's') {
         event.preventDefault();
         save();
@@ -830,10 +1291,10 @@
         $('filter').focus();
         $('filter').select();
       } else if (event.key === 'Escape') {
-        const openModal = document.querySelector('.modal:not(.hidden)');
-        if (openModal) {
+        const modal = activeModal();
+        if (modal) {
           confirmAction = null;
-          openModal.classList.add('hidden');
+          closeModal(modal.id);
         } else if (state.filter) {
           $('filter-clear').click();
         }
@@ -841,6 +1302,7 @@
     });
 
     const list = $('list');
+    list.addEventListener('keydown', onListKeydown);
 
     list.addEventListener('dragstart', function (event) {
       if (state.filter) {
@@ -857,7 +1319,7 @@
         };
         item.classList.add('dragging');
       } else if (head) {
-        if (event.target.closest('.switch')) {
+        if (event.target.closest('.switch, .group-add, .chevron-btn')) {
           event.preventDefault();
           return;
         }
@@ -929,7 +1391,10 @@
         const after = event.clientY > rect.top + rect.height / 2;
         const toGroup = Number(item.dataset.group);
         const toIndex = Number(item.dataset.index) + (after ? 1 : 0);
-        if (toGroup === dragging.group && (toIndex === dragging.index || toIndex === dragging.index + 1)) {
+        if (
+          toGroup === dragging.group &&
+          (toIndex === dragging.index || toIndex === dragging.index + 1)
+        ) {
           return;
         }
         apply(
@@ -960,9 +1425,23 @@
     });
   }
 
-  // -- bootstrap ----------------------------------------------------------
+  // -- 关闭握手 -----------------------------------------------------------
+  /**
+   * Python 在原生 ``closing`` 回调里碰不了网页（会死锁），所以它取消关闭、
+   * 从工作线程调用这个方法；用户的选择再通过 ``answer_close`` 传回去。
+   */
+  window.fastrun = {
+    askUnsaved: function () {
+      openModal('modal-unsaved');
+      return true;
+    },
+  };
+
+  // -- 启动 ---------------------------------------------------------------
   async function init() {
     bind();
+    await loadStrings();
+    applyStrings();
     apply(await call('get_state'));
   }
 

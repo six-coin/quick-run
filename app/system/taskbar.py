@@ -1,9 +1,8 @@
-"""Taskbar hiding while the launcher is open.
+"""启动器弹出时隐藏任务栏。
 
-The launcher is meant to feel like an overlay. When a fullscreen application is
-in the foreground (a game, a video), Windows' taskbar would otherwise pop up on
-top of it when our window is shown, so we hide it for the lifetime of the popup
-and restore it on hide.
+启动器要的是一种“浮层”感觉。当前台是全屏程序（游戏、视频）时，我们的窗口
+一显示就会把 Windows 任务栏顶到最前面，所以在弹出期间先隐藏任务栏，
+窗口收起后再恢复。
 """
 
 from __future__ import annotations
@@ -26,7 +25,7 @@ class _Rect(ctypes.Structure):
 
 
 def is_fullscreen_foreground() -> bool:
-    """Heuristic kept from the old version: foreground window covers the screen."""
+    """沿用旧版的判断方式：前台窗口正好铺满整个屏幕。"""
     try:
         hwnd = _user32.GetForegroundWindow()
         if not hwnd:

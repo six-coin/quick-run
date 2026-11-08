@@ -4,17 +4,50 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fast Run 操作管理器</title>
+<script>
+  // 首帧之前先把外观定下来，避免深色模式闪一下白。
+  // 优先用上次记住的值，其次跟随系统；随后 get_state 会再校正一次。
+  (function () {
+    var saved = null;
+    try {
+      saved = localStorage.getItem('fastrunTheme');
+    } catch (error) {
+      saved = null;
+    }
+    if (saved !== 'dark' && saved !== 'light') {
+      saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.dataset.theme = saved;
+  })();
+</script>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
   <aside class="sidebar">
     <header class="sidebar-head">
       <div class="titles">
-        <h1>Fast Run 操作管理器</h1>
-        <p id="count-label">0 项</p>
+        <h1 data-i18n="manager.title">Fast Run 操作管理器</h1>
+        <p id="count-label">0</p>
       </div>
-      <span id="dirty-badge" class="dirty hidden">未保存</span>
+      <div class="head-actions">
+        <span id="dirty-badge" class="dirty hidden" data-i18n="manager.unsaved_badge">未保存</span>
+        <button type="button" id="btn-theme" class="icon-btn" data-i18n-title="manager.theme" data-i18n-aria="manager.theme">
+          <svg class="icon-moon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M13.4 9.8A5.8 5.8 0 0 1 6.2 2.6a5.8 5.8 0 1 0 7.2 7.2z"></path>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="8" r="3.1"></circle>
+            <path d="M8 1.4v1.5M8 13.1v1.5M1.4 8h1.5M13.1 8h1.5M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M12.7 3.3l-1.1 1.1M4.4 11.6l-1.1 1.1"></path>
+          </svg>
+        </button>
+        <button type="button" id="btn-settings" class="icon-btn" data-i18n-title="manager.settings" data-i18n-aria="manager.settings">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="8" cy="8" r="2.2"></circle>
+            <path d="M8 1.4v1.7M8 12.9v1.7M1.4 8h1.7M12.9 8h1.7M3.3 3.3l1.2 1.2M11.5 11.5l1.2 1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2"></path>
+          </svg>
+        </button>
+      </div>
     </header>
 
     <div class="search">
@@ -22,20 +55,19 @@
         <circle cx="6.8" cy="6.8" r="4.6"></circle>
         <path d="M10.4 10.4L14 14"></path>
       </svg>
-      <input id="filter" type="text" placeholder="搜索名称或关键词" autocomplete="off" spellcheck="false">
-      <button type="button" id="filter-clear" class="search-clear hidden" title="清除">×</button>
+      <input id="filter" type="text" data-i18n-placeholder="manager.search" data-i18n-aria="manager.search" autocomplete="off" spellcheck="false">
+      <button type="button" id="filter-clear" class="search-clear hidden" data-i18n-title="manager.search_clear" data-i18n-aria="manager.search_clear">×</button>
     </div>
 
-    <div id="list" class="list"></div>
+    <div id="list" class="list" role="tree" aria-label="groups"></div>
 
     <footer class="sidebar-foot">
       <div class="foot-row">
-        <button type="button" id="btn-add" class="btn ghost">添加操作</button>
-        <button type="button" id="btn-add-group" class="btn ghost">新建分组</button>
-        <button type="button" id="btn-help" class="btn ghost">帮助</button>
+        <button type="button" id="btn-add-group" class="btn ghost" data-i18n="manager.new_group">新建分组</button>
+        <button type="button" id="btn-help" class="btn ghost" data-i18n="manager.help">帮助</button>
       </div>
       <button type="button" id="btn-save" class="btn primary block">
-        <span>保存文件</span><kbd>Ctrl S</kbd>
+        <span data-i18n="manager.save">保存文件</span><kbd>Ctrl+S</kbd>
       </button>
     </footer>
   </aside>
@@ -47,183 +79,248 @@
         <path d="M14 34h68"></path>
         <path d="M30 48h20M30 60h36"></path>
       </svg>
-      <h2>还没有选择内容</h2>
-      <p>从左侧挑一个操作或分组，或者新建一条。</p>
-      <button type="button" class="btn primary" id="btn-add-empty">添加操作</button>
+      <h2 data-i18n="manager.empty_title">还没有任何分组</h2>
+      <p data-i18n="manager.empty_text">先建一个分组，再把操作放进去。</p>
+      <button type="button" class="btn primary" id="btn-add-empty" data-i18n="manager.new_group">新建分组</button>
     </div>
 
     <section id="group-editor" class="editor hidden">
       <header class="editor-head">
         <div class="editor-title">
-          <h2 id="group-title">分组</h2>
-          <p id="group-sub" class="hint">0 条操作</p>
+          <h2 id="group-title">—</h2>
+          <p id="group-sub" class="hint">0</p>
         </div>
         <div class="editor-tools">
-          <button type="button" id="btn-group-up" class="btn">上移</button>
-          <button type="button" id="btn-group-down" class="btn">下移</button>
+          <button type="button" id="btn-group-up" class="btn" data-i18n="manager.move_up">上移</button>
+          <button type="button" id="btn-group-down" class="btn" data-i18n="manager.move_down">下移</button>
         </div>
       </header>
 
       <div class="card">
         <div class="field">
-          <label for="f-group-name">分组名称</label>
-          <input id="f-group-name" type="text" placeholder="例如：工作、学习、游戏">
+          <label for="f-group-name" data-i18n="manager.group_name">分组名称</label>
+          <input id="f-group-name" type="text" data-i18n-placeholder="manager.group_name_placeholder">
         </div>
 
         <label class="switch">
           <input id="f-group-enabled" type="checkbox">
           <span class="switch-track"></span>
-          <span class="switch-label">启用该分组</span>
+          <span class="switch-label" data-i18n="manager.group_enabled">启用该分组</span>
         </label>
-        <p class="hint">关闭后，这一组的操作不会出现在启动器里，配置仍然保留。</p>
+        <p class="hint" data-i18n="manager.group_enabled_hint"></p>
+      </div>
 
-        <div class="group-actions">
-          <button type="button" id="btn-group-add-op" class="btn">在该组添加操作</button>
-          <button type="button" id="btn-group-delete" class="btn danger-ghost">删除该分组</button>
-        </div>
+      <div class="group-actions">
+        <button type="button" id="btn-group-delete" class="btn danger-ghost" data-i18n="manager.delete_group">删除该分组</button>
+        <button type="button" id="btn-group-add-op" class="btn soft" data-i18n="manager.add_op_in_group">在该组添加操作</button>
       </div>
     </section>
 
     <section id="editor" class="editor hidden">
       <header class="editor-head">
         <div class="editor-title">
-          <h2 id="editor-name">未命名操作</h2>
+          <h2 id="editor-name">—</h2>
           <div class="meta">
-            <span id="editor-type" class="chip">打开文件</span>
-            <span id="editor-keywords" class="meta-text">无匹配字串</span>
+            <span id="editor-type" class="chip">—</span>
+            <span id="editor-keywords" class="meta-text">—</span>
           </div>
         </div>
         <div class="editor-tools">
-          <button type="button" id="btn-up" class="btn">上移</button>
-          <button type="button" id="btn-down" class="btn">下移</button>
+          <button type="button" id="btn-up" class="btn" data-i18n="manager.move_up">上移</button>
+          <button type="button" id="btn-down" class="btn" data-i18n="manager.move_down">下移</button>
         </div>
       </header>
 
       <div class="card">
         <div class="grid">
           <div class="field span-2">
-            <label for="f-display">显示名称</label>
-            <input id="f-display" type="text" placeholder="在结果列表里显示的文字" autocomplete="off">
+            <label for="f-display" data-i18n="manager.display">显示名称</label>
+            <input id="f-display" type="text" data-i18n-placeholder="manager.display_placeholder" autocomplete="off">
           </div>
 
           <div class="field span-2">
-            <label>运行方式</label>
+            <label data-i18n="manager.type">运行方式</label>
             <div id="type-pills" class="pills"></div>
           </div>
 
           <div class="field span-2">
-            <label for="f-keywords">匹配字串</label>
+            <label for="f-keywords" data-i18n="manager.keywords">匹配字串</label>
             <input id="f-keywords" type="text" placeholder="leidian|ld" autocomplete="off" spellcheck="false">
-            <p class="hint">只允许小写字母 <code>a-z</code> 与 <code>|</code>；保存时会自动去掉多余的分隔符。</p>
+            <p class="hint" data-i18n="manager.keywords_hint"></p>
           </div>
-
         </div>
 
         <div class="divider"></div>
 
         <div class="arg-panel" data-type="file">
           <div class="field">
-            <label for="f-path">文件路径</label>
+            <label for="f-path" data-i18n="manager.path">文件路径</label>
             <div class="inline">
               <input id="f-path" data-arg="path" type="text" placeholder="C:\Program Files\App\app.exe" spellcheck="false">
-              <button type="button" class="btn" data-browse="file">浏览</button>
+              <button type="button" class="btn" data-browse="file" data-i18n="manager.browse">浏览</button>
             </div>
           </div>
           <label class="switch">
             <input id="f-no-window" data-arg="no_window" type="checkbox">
             <span class="switch-track"></span>
-            <span class="switch-label">无窗口运行</span>
+            <span class="switch-label" data-i18n="manager.no_window">无窗口运行</span>
           </label>
-          <p class="hint">勾选后不弹出命令行窗口，适合 .py / .bat 脚本。</p>
+          <p class="hint" data-i18n="manager.no_window_hint"></p>
         </div>
 
         <div class="arg-panel" data-type="dir">
           <div class="field">
-            <label for="f-dir">文件夹路径</label>
+            <label for="f-dir" data-i18n="manager.dir">文件夹路径</label>
             <div class="inline">
               <input id="f-dir" data-arg="dir" type="text" placeholder="E:\Play" spellcheck="false">
-              <button type="button" class="btn" data-browse="dir">浏览</button>
+              <button type="button" class="btn" data-browse="dir" data-i18n="manager.browse">浏览</button>
             </div>
           </div>
           <label class="switch">
             <input id="f-allow-explore" data-arg="allow_explore" type="checkbox">
             <span class="switch-track"></span>
-            <span class="switch-label">允许浏览子文件夹</span>
+            <span class="switch-label" data-i18n="manager.allow_explore">允许浏览子文件夹</span>
           </label>
           <div class="field" id="row-depth">
-            <label for="f-depth">探索深度</label>
+            <label for="f-depth" data-i18n="manager.depth">探索深度</label>
             <input id="f-depth" data-arg="explore_depth" type="text" inputmode="numeric" placeholder="0">
-            <p class="hint">0 只列根目录，最大 5；单目录超过 100 项不会展开。</p>
+            <p class="hint" id="depth-hint"></p>
           </div>
         </div>
 
         <div class="arg-panel" data-type="url">
           <div class="field">
-            <label for="f-url">网页地址</label>
+            <label for="f-url" data-i18n="manager.url">网页地址</label>
             <input id="f-url" data-arg="url" type="text" placeholder="https://example.com" spellcheck="false">
           </div>
         </div>
 
         <div class="arg-panel" data-type="cmd">
           <div class="field">
-            <label for="f-command">执行命令</label>
+            <label for="f-command" data-i18n="manager.command">执行命令</label>
             <input id="f-command" data-arg="command" type="text" placeholder="shutdown \a" spellcheck="false">
-            <p class="hint">在程序目录下用命令行执行，会弹出控制台窗口。</p>
+            <p class="hint" data-i18n="manager.command_hint"></p>
           </div>
         </div>
 
         <div class="arg-panel" data-type="debug">
           <div class="field">
-            <label>调试功能</label>
-            <div id="f-function" class="select" data-value="restart" tabindex="0" role="listbox" aria-label="调试功能">
-              <span class="select-value">重启程序</span>
+            <label data-i18n="manager.debug_function">调试功能</label>
+            <div id="f-function" class="select" data-value="restart" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+              <span class="select-value">—</span>
               <svg class="select-arrow" viewBox="0 0 12 12" aria-hidden="true">
                 <path d="M2.5 4.5L6 8l3.5-3.5"></path>
               </svg>
-              <div class="select-menu"></div>
+              <div class="select-menu" role="listbox"></div>
             </div>
           </div>
         </div>
       </div>
 
       <div class="group-actions">
-        <button type="button" id="btn-delete-op" class="btn danger-ghost">删除该操作</button>
-        <button type="button" id="btn-move-group" class="btn">切换到组</button>
+        <button type="button" id="btn-delete-op" class="btn danger-ghost" data-i18n="manager.delete_op">删除该操作</button>
+        <button type="button" id="btn-move-group" class="btn soft" data-i18n="manager.move_group">切换到组</button>
       </div>
     </section>
   </main>
 </div>
 
-<div id="modal-help" class="modal hidden">
-  <div class="modal-card">
+<div id="modal-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+  <div class="modal-card" tabindex="-1">
     <header class="modal-head">
-      <h2>使用帮助</h2>
-      <button type="button" class="icon-btn" data-close="modal-help" title="关闭">×</button>
+      <h2 id="help-title" data-i18n="manager.help_title">使用帮助</h2>
+      <button type="button" class="icon-btn" data-close="modal-help" data-i18n-title="manager.help_title">×</button>
     </header>
     <div id="help-body" class="modal-body"></div>
   </div>
 </div>
 
-<div id="modal-confirm" class="modal hidden">
-  <div class="modal-card narrow">
+<div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal-card narrow" tabindex="-1">
     <header class="modal-head">
-      <h2 id="confirm-title">确认</h2>
+      <h2 id="confirm-title">—</h2>
     </header>
     <p id="confirm-text" class="modal-text"></p>
     <div class="modal-actions">
-      <button type="button" class="btn ghost" id="btn-confirm-cancel">取消</button>
-      <button type="button" class="btn danger" id="btn-confirm-ok">删除</button>
+      <button type="button" class="btn ghost" id="btn-confirm-cancel" data-i18n="manager.cancel">取消</button>
+      <button type="button" class="btn danger" id="btn-confirm-ok" data-i18n="manager.delete">删除</button>
     </div>
   </div>
 </div>
 
-<div id="modal-group" class="modal hidden">
-  <div class="modal-card narrow">
+<div id="modal-group" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+  <div class="modal-card narrow" tabindex="-1">
     <header class="modal-head">
-      <h2>切换到分组</h2>
-      <button type="button" class="icon-btn" data-close="modal-group" title="关闭">×</button>
+      <h2 id="picker-title" data-i18n="manager.picker_title">切换到分组</h2>
+      <button type="button" class="icon-btn" data-close="modal-group" data-i18n-title="manager.cancel">×</button>
     </header>
     <div id="group-picker" class="picker"></div>
+  </div>
+</div>
+
+<div id="modal-unsaved" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
+  <div class="modal-card narrow" tabindex="-1">
+    <header class="modal-head">
+      <h2 id="unsaved-title" data-i18n="manager.unsaved_title">有未保存的更改</h2>
+      <button type="button" class="icon-btn" data-close="modal-unsaved" data-i18n-title="manager.cancel">×</button>
+    </header>
+    <p class="modal-text" data-i18n="manager.unsaved_text"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" id="btn-unsaved-cancel" data-i18n="manager.cancel">取消</button>
+      <button type="button" class="btn danger-ghost" id="btn-unsaved-discard" data-i18n="manager.discard">不保存</button>
+      <button type="button" class="btn primary" id="btn-unsaved-save" data-i18n="manager.save_and_close">保存并关闭</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal-card narrow" tabindex="-1">
+    <header class="modal-head">
+      <h2 id="settings-title" data-i18n="settings.title">设置</h2>
+      <button type="button" class="icon-btn" data-close="modal-settings" data-i18n-title="settings.done">×</button>
+    </header>
+
+    <div class="settings">
+      <section class="settings-section">
+        <h3 data-i18n="settings.language">语言</h3>
+        <div id="set-language" class="seg"></div>
+      </section>
+
+      <section class="settings-section">
+        <h3 data-i18n="settings.navigation">文件夹浏览</h3>
+        <div class="field">
+          <label for="set-depth" data-i18n="settings.max_depth">最大扫描深度</label>
+          <input id="set-depth" type="text" inputmode="numeric">
+          <p class="hint" id="depth-limit-hint"></p>
+        </div>
+        <div class="field">
+          <label for="set-entries" data-i18n="settings.max_entries">单目录条目上限</label>
+          <input id="set-entries" type="text" inputmode="numeric">
+          <p class="hint" data-i18n="settings.max_entries_hint"></p>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3 data-i18n="settings.services">外部服务</h3>
+        <div class="field">
+          <label for="set-appid" data-i18n="settings.translate_appid">百度翻译 APP ID</label>
+          <input id="set-appid" type="text" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="set-secret" data-i18n="settings.translate_key">百度翻译密钥</label>
+          <input id="set-secret" type="text" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="set-ai" data-i18n="settings.ai_key">AI 查词 API Key</label>
+          <input id="set-ai" type="text" autocomplete="off" spellcheck="false">
+        </div>
+        <p class="hint" data-i18n="settings.services_hint"></p>
+      </section>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn primary" id="btn-settings-done" data-i18n="settings.done">完成</button>
+    </div>
   </div>
 </div>
 

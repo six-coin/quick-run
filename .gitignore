@@ -1,4 +1,4 @@
-# Python-generated files
+# Python 生成的文件
 __pycache__/
 *.py[oc]
 build/
@@ -6,16 +6,17 @@ dist/
 wheels/
 *.egg-info
 
-# Virtual environments
+# 虚拟环境与编辑器
 .venv/
 .idea/
 
-# User data (private, never committed)
+# 用户数据（私有，不进版本库）
 logs/
 custom/
 config/
 
-# Local scratch
+# 本地临时文件
 *.tmp
 old/
 docs/
+.workbuddy-ai/

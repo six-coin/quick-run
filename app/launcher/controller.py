@@ -1,9 +1,8 @@
-"""Launcher interaction state machine.
+"""启动器的交互状态机。
 
-Owns everything that is not pixels: the current query, the result rows, the
-selection window, the input history and the debounce/async plumbing. The window
-only renders what this object emits, which is what keeps the two layers
-decoupled (the old code had operations mutating widgets directly).
+除了像素以外的一切都归这里管：当前查询、结果行、可见窗口、输入历史和
+防抖 / 异步调度。窗口只负责渲染它发出的信号，这也是两层能解耦的原因
+（旧版本是让操作对象反过来改控件）。
 """
 
 from __future__ import annotations
@@ -11,6 +10,7 @@ from __future__ import annotations
 from loguru import logger
 from PySide6.QtCore import QObject, QTimer, Signal
 
+from app import i18n
 from app.core import calculator
 from app.core.actions import ActionExecutor, Modifiers
 from app.core.resolver import PendingRequest, QueryResolver
@@ -18,13 +18,14 @@ from app.core.rows import ResultRow, RowKind, RowStatus
 from app.errors import CalcError
 from app.launcher.tasks import TaskRunner
 
+#: 结果列表一次最多显示几行。
 VISIBLE_ROWS = 5
 
 
 class LauncherController(QObject):
-    #: rows, selected index, index of the first visible row
+    #: 结果行、选中下标、第一行的下标
     rows_changed = Signal(list, int, int)
-    #: index in ``rows``, new text
+    #: 结果行下标、新的文本
     row_updated = Signal(int, str)
     hide_requested = Signal()
     history_text = Signal(str)
@@ -66,7 +67,7 @@ class LauncherController(QObject):
         self._tasks = TaskRunner(self)
         self._tasks.finished.connect(self._on_task_done)
 
-    # -- session ----------------------------------------------------------
+    # -- 会话 -------------------------------------------------------------
     def begin_session(self) -> None:
         self._history = [entry for entry in self._history if entry]
         self._history.append("")
@@ -79,7 +80,7 @@ class LauncherController(QObject):
         self._cancel_pending()
         self._generation += 1
 
-    # -- query ------------------------------------------------------------
+    # -- 查询 -------------------------------------------------------------
     def set_query(self, text: str) -> None:
         text = (text or "").replace("\n", " ")
         self._query = text
@@ -117,7 +118,7 @@ class LauncherController(QObject):
             return
         self.history_text.emit(self._history[self._history_pos])
 
-    # -- selection --------------------------------------------------------
+    # -- 选中项 -----------------------------------------------------------
     def move_selection(self, delta: int) -> None:
         if not self._rows:
             return
@@ -137,7 +138,7 @@ class LauncherController(QObject):
             self._selected = index
             self.rows_changed.emit(self._rows, self._selected, self._visible_start)
 
-    # -- activation -------------------------------------------------------
+    # -- 执行 -------------------------------------------------------------
     def activate(self, modifiers: Modifiers | None = None) -> None:
         if not self._rows:
             return
@@ -160,7 +161,7 @@ class LauncherController(QObject):
             RowKind.ERROR,
         )
         if hide_first:
-            # Hide before launching so the new window ends up in front.
+            # 先收起窗口再启动，新的窗口才会出现在最前面。
             self.hide_requested.emit()
             self._cancel_pending()
             self._generation += 1
@@ -175,7 +176,7 @@ class LauncherController(QObject):
             self._cancel_pending()
             self._generation += 1
 
-    # -- async ------------------------------------------------------------
+    # -- 异步 -------------------------------------------------------------
     def _schedule(self, pending: PendingRequest) -> None:
         if pending.kind is RowKind.CALCULATE:
             self._pending[RowKind.CALCULATE] = pending
@@ -210,7 +211,7 @@ class LauncherController(QObject):
         if self._translator is None:
             return
         row.status = RowStatus.LOADING
-        row.text = "翻译：加载中..."
+        row.text = i18n.t("launcher.translate_loading")
         self._emit_row(row)
         text = str(row.payload)
         generation = self._generation
@@ -220,7 +221,7 @@ class LauncherController(QObject):
         if self._definition is None:
             return
         row.status = RowStatus.LOADING
-        row.text = "查词：加载中..."
+        row.text = i18n.t("launcher.definition_loading")
         self._emit_row(row)
         text = str(row.payload)
         generation = self._generation
@@ -244,7 +245,7 @@ class LauncherController(QObject):
 
         self.row_updated.emit(index, row.text)
 
-    # -- helpers ----------------------------------------------------------
+    # -- 工具 -------------------------------------------------------------
     def _find(self, key: str) -> tuple[int, ResultRow] | None:
         for index, row in enumerate(self._rows):
             if row.key == key:
@@ -264,26 +265,26 @@ class LauncherController(QObject):
     @staticmethod
     def _format_success(kind: RowKind, value: str) -> str:
         if kind is RowKind.CALCULATE:
-            return f"计算：{value}"
+            return i18n.t("launcher.calculate", text=value)
         if kind is RowKind.TRANSLATE:
-            return f"翻译：{value}"
+            return i18n.t("launcher.translate", text=value)
         if kind is RowKind.DEFINITION:
-            return f"查词：{value}"
+            return i18n.t("launcher.definition_result", text=value)
         return value
 
     @staticmethod
     def _format_error(kind: RowKind, payload: object) -> str:
         if kind is RowKind.CALCULATE:
             if isinstance(payload, CalcError):
-                return f"计算：{payload}"
-            return f"计算：发生错误：{payload}"
+                return i18n.t("launcher.calculate", text=payload)
+            return i18n.t("launcher.calc_failed", error=payload)
         if kind is RowKind.TRANSLATE:
-            return f"翻译：{payload}"
+            return i18n.t("launcher.translate", text=payload)
         if kind is RowKind.DEFINITION:
-            return f"查词：{payload}"
+            return i18n.t("launcher.definition_result", text=payload)
         return str(payload)
 
-    # -- read only --------------------------------------------------------
+    # -- 只读属性 ---------------------------------------------------------
     @property
     def query(self) -> str:
         return self._query

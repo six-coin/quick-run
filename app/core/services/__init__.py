@@ -1,5 +1,5 @@
-"""External services (network, audio).
+"""外部服务（网络、音频）。
 
-Kept intentionally empty so importing one service never pulls in the others
-(``requests`` is only needed by translate/definition, not by the search helpers).
+这里刻意留空，这样导入其中一个服务时不会顺带拉起其他服务
+（``requests`` 只有翻译和查词需要，搜索链接构造用不上）。
 """

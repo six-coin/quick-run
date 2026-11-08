@@ -1,0 +1,47 @@
+<h3>1. Groups</h3>
+<ul>
+    <li>Operations are organised in groups. The order of the groups is the order results appear in the launcher.</li>
+    <li>Click a group title to edit its name, or use the switch on the right to disable the whole group; disabled groups are skipped when searching.</li>
+    <li>The “+” next to a group title adds an operation to that group; the “+” at the bottom of the list creates a new group.</li>
+    <li>Drag a group title to change the group order.</li>
+</ul>
+
+<h3>2. Action types</h3>
+<ul>
+    <li><b>Open file</b>: opens a file with its default program. Tick “Run without window” to hide the console window.</li>
+    <li><b>Open folder</b>: opens a folder in File Explorer. Tick “Allow browsing subfolders” to enable the “keyword + space” browsing mode (a depth is required).</li>
+    <li><b>Open URL</b>: opens an address in the default browser.</li>
+    <li><b>Run command</b>: runs a command in a console window.</li>
+    <li><b>Debug</b>: restarts or closes Fast Run itself.</li>
+</ul>
+
+<h3>3. Fields</h3>
+<ul>
+    <li><b>Display name</b>: the text shown in the result list.</li>
+    <li><b>Action type</b>: what the operation does.</li>
+    <li><b>Match keywords</b>: only lowercase <code>a-z</code> and the separator <code>|</code> are kept; matching is by prefix. Illegal characters and redundant <code>|</code> are removed on save.</li>
+    <li><b>Move to group</b>: moves the current operation to another group (button at the bottom of the editor).</li>
+</ul>
+
+<h3>4. Folder browsing</h3>
+<ul>
+    <li>With “Allow browsing subfolders” enabled, type the keyword plus a space in the launcher to browse that folder.</li>
+    <li>Explore depth limits how many subfolder levels this operation may enter. 0 lists the root only; 2 allows one level of subfolders.</li>
+    <li>Settings also provide a global maximum scan depth and a per-folder item limit; folders above the limit are not expanded.</li>
+    <li>Browsing supports pinyin search and index selection (for example <code>keyword a#2</code>).</li>
+</ul>
+
+<h3>5. Keyboard</h3>
+<ul>
+    <li>The sidebar is a single tab stop: press <code>Tab</code> once, then use <code>↑</code> <code>↓</code> to move between groups and operations.</li>
+    <li><code>Enter</code> or <code>Space</code> selects the focused item; <code>←</code> collapses a group or jumps back to it, <code>→</code> expands it.</li>
+    <li>The “+” and the switch on a group row are their own tab stops; press <code>Enter</code> or <code>Space</code> to activate them.</li>
+    <li>While a dialog is open, <code>Tab</code> cycles inside it and <code>Esc</code> closes it.</li>
+    <li>Global shortcuts: <code>Ctrl + S</code> saves, <code>Ctrl + F</code> focuses the search box.</li>
+</ul>
+
+<h3>6. Settings</h3>
+<ul>
+    <li>Language, appearance, scan limits and service keys live in <code>config/app.json</code> and take effect immediately.</li>
+    <li>Appearance follows the system on first launch; afterwards your last choice is kept.</li>
+</ul>

@@ -4,10 +4,9 @@ import json
 
 import pytest
 
-from app import settings
+from app import i18n, settings
 from app.errors import ConfigError
 from app.models import (
-    DEFAULT_GROUP_NAME,
     FieldError,
     Operation,
     OperationGroup,
@@ -31,39 +30,36 @@ def _operation(display: str, keywords: str = "k", **arguments):
     )
 
 
-# -- loading --------------------------------------------------------------
-def test_load_v2_groups(tmp_path):
+# -- 操作列表：根层就是分组数组 -------------------------------------------
+def test_load_groups_from_root_array(tmp_path):
     target = _write(
         tmp_path,
-        {
-            "version": 2,
-            "groups": [
-                {
-                    "name": "工作",
-                    "enabled": True,
-                    "operations": [
-                        {
-                            "display": "A",
-                            "type": "file",
-                            "keywords": "a",
-                            "arguments": {"path": "x"},
-                        }
-                    ],
-                },
-                {
-                    "name": "娱乐",
-                    "enabled": False,
-                    "operations": [
-                        {
-                            "display": "B",
-                            "type": "dir",
-                            "keywords": "b",
-                            "arguments": {"dir": "y"},
-                        }
-                    ],
-                },
-            ],
-        },
+        [
+            {
+                "name": "工作",
+                "enabled": True,
+                "operations": [
+                    {
+                        "display": "A",
+                        "type": "file",
+                        "keywords": "a",
+                        "arguments": {"path": "x"},
+                    }
+                ],
+            },
+            {
+                "name": "娱乐",
+                "enabled": False,
+                "operations": [
+                    {
+                        "display": "B",
+                        "type": "dir",
+                        "keywords": "b",
+                        "arguments": {"dir": "y"},
+                    }
+                ],
+            },
+        ],
     )
     groups = settings.load_groups(target)
     assert [group.name for group in groups] == ["工作", "娱乐"]
@@ -71,28 +67,14 @@ def test_load_v2_groups(tmp_path):
     assert groups[0].operations[0].display == "A"
 
 
-def test_load_v1_array_is_migrated(tmp_path):
-    target = _write(
-        tmp_path,
-        [
-            {"display": "A", "type": "file", "keywords": "a", "arguments": {"path": "x"}},
-            {"display": "B", "type": "file", "keywords": "b", "arguments": {"path": "y"}},
-        ],
-    )
-    groups = settings.load_groups(target)
-    assert len(groups) == 1
-    assert groups[0].name == DEFAULT_GROUP_NAME
-    assert groups[0].enabled is True
-    assert [operation.display for operation in groups[0].operations] == ["A", "B"]
-
-
 def test_missing_file_creates_one_default_group(tmp_path):
     target = tmp_path / "nested" / "operations.json"
     groups = settings.load_groups(target)
     assert len(groups) == 1
-    assert groups[0].name == DEFAULT_GROUP_NAME
+    assert groups[0].name == i18n.t("default.group")
     assert len(groups[0].operations) >= 5
     assert target.exists()
+    assert isinstance(json.loads(target.read_text(encoding="utf-8")), list)
 
 
 def test_invalid_json_is_reported(tmp_path):
@@ -102,21 +84,26 @@ def test_invalid_json_is_reported(tmp_path):
         settings.load_groups(target)
 
 
+def test_object_root_is_rejected(tmp_path):
+    with pytest.raises(ConfigError):
+        settings.load_groups(_write(tmp_path, {"groups": []}))
+
+
 def test_empty_group_list_is_rejected(tmp_path):
     with pytest.raises(ConfigError):
-        settings.load_groups(_write(tmp_path, {"version": 2, "groups": []}))
+        settings.load_groups(_write(tmp_path, []))
 
 
 def test_missing_operation_key_is_rejected(tmp_path):
     target = _write(
         tmp_path,
-        {"groups": [{"name": "G", "operations": [{"display": "A", "type": "file"}]}]},
+        [{"name": "G", "operations": [{"display": "A", "type": "file"}]}],
     )
     with pytest.raises(ConfigError):
         settings.load_groups(target)
 
 
-# -- ordering -------------------------------------------------------------
+# -- 顺序 ---------------------------------------------------------------
 def test_flatten_keeps_group_order_and_skips_disabled():
     groups = [
         OperationGroup(name="一", enabled=True, operations=[_operation("A"), _operation("B")]),
@@ -132,8 +119,8 @@ def test_flatten_keeps_group_order_and_skips_disabled():
     ]
 
 
-# -- saving ---------------------------------------------------------------
-def test_save_roundtrip(tmp_path):
+# -- 保存 ---------------------------------------------------------------
+def test_save_writes_a_bare_array(tmp_path):
     target = tmp_path / "operations.json"
     groups = [
         OperationGroup(name="工作", enabled=True, operations=[_operation("A")]),
@@ -142,10 +129,10 @@ def test_save_roundtrip(tmp_path):
     settings.save_groups(groups, target)
 
     payload = json.loads(target.read_text(encoding="utf-8"))
-    assert payload["version"] == 2
-    assert [group["name"] for group in payload["groups"]] == ["工作", "娱乐"]
-    assert payload["groups"][1]["enabled"] is False
-    assert set(payload["groups"][0]["operations"][0]) == {
+    assert isinstance(payload, list)
+    assert [group["name"] for group in payload] == ["工作", "娱乐"]
+    assert payload[1]["enabled"] is False
+    assert set(payload[0]["operations"][0]) == {
         "display",
         "type",
         "keywords",
@@ -156,14 +143,75 @@ def test_save_roundtrip(tmp_path):
     assert [operation.display for operation in flatten_groups(reloaded)] == ["A"]
 
 
-def test_empty_group_name_falls_back(tmp_path):
+def test_empty_group_name_falls_back_on_load(tmp_path):
     target = tmp_path / "operations.json"
     groups = [OperationGroup(name="   ", enabled=True, operations=[_operation("A")])]
     settings.save_groups(groups, target)
-    assert settings.load_groups(target)[0].name == DEFAULT_GROUP_NAME
+    assert settings.load_groups(target)[0].name == i18n.t("manager.unnamed_group")
 
 
-# -- normalisation & validation -------------------------------------------
+# -- 应用配置 -------------------------------------------------------------
+def test_app_config_is_created_with_system_theme(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "system_theme", lambda: "dark")
+    target = tmp_path / "app.json"
+
+    config = settings.load_app_config(target)
+
+    assert config.theme == "dark"
+    assert target.exists()
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["theme"] == "dark"
+    assert payload["language"] == "zh"
+    assert payload["navigation"] == {"max_depth": 5, "max_entries": 100}
+
+
+def test_app_config_roundtrip(tmp_path):
+    target = tmp_path / "app.json"
+    config = settings.AppConfig(
+        language="en",
+        theme="dark",
+        max_depth=3,
+        max_entries=50,
+        translate_appid="id",
+        translate_secret="key",
+        ai_api_key="token",
+    )
+    settings.save_app_config(config, target)
+
+    loaded = settings.load_app_config(target)
+    assert loaded == config
+    assert loaded.translate is not None
+    assert loaded.translate.appid == "id"
+
+
+def test_app_config_clamps_out_of_range_values(tmp_path):
+    target = tmp_path / "app.json"
+    target.write_text(
+        json.dumps(
+            {
+                "language": "fr",
+                "theme": "neon",
+                "navigation": {"max_depth": 99, "max_entries": 0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    config = settings.load_app_config(target)
+
+    assert config.language == "zh"
+    assert config.theme == "light"
+    assert config.max_depth == 5
+    assert config.max_entries == 1
+
+
+def test_translate_requires_both_fields():
+    assert settings.AppConfig(translate_appid="a").translate is None
+    assert settings.AppConfig(translate_secret="b").translate is None
+    assert settings.AppConfig(translate_appid="a", translate_secret="b").translate is not None
+
+
+# -- 归一化与校验 ---------------------------------------------------------
 def test_normalize_paths_and_depth():
     operation = Operation(
         display="  A  ",
@@ -220,22 +268,7 @@ def test_change_type_carries_path():
     assert operation.arguments["dir"] == r"C:\x"
 
 
-# -- optional services ----------------------------------------------------
-def test_translate_requires_credentials(tmp_path):
-    target = tmp_path / "translate.json"
-    assert settings.load_translate(target) is None
-
-    target.write_text(json.dumps({"appid": "a", "secret_key": "b"}), encoding="utf-8")
-    config = settings.load_translate(target)
-    assert config is not None
-    assert config.appid == "a"
-
-
-def test_ai_key_defaults_to_empty(tmp_path):
-    assert settings.load_ai_key(tmp_path / "ai.json") == ""
-
-
-# -- keyword sanitising ---------------------------------------------------
+# -- 匹配字串清理 ---------------------------------------------------------
 def test_sanitize_keywords():
     from app.models import sanitize_keywords
 

@@ -1,4 +1,4 @@
-"""URL construction for the built-in web actions."""
+"""内置网页动作的 URL 构造。"""
 
 from __future__ import annotations
 

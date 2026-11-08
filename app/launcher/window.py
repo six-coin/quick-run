@@ -1,8 +1,8 @@
-"""The Alt+Space popup window.
+"""Alt+Space 唤出的弹窗。
 
-Strictly a view: it renders rows pushed by :class:`LauncherController`, forwards
-keyboard input back to it, and owns the window chrome (frameless, translucent,
-fade in/out, taskbar handling). It never touches operations or services.
+它严格来说只是一个视图：渲染 :class:`LauncherController` 推过来的结果行，
+把键盘输入原样转回去，并负责窗口外观（无边框、半透明、淡入淡出、任务栏）。
+它不碰操作，也不碰任何服务。
 """
 
 from __future__ import annotations
@@ -19,9 +19,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app import i18n
 from app.core.actions import Modifiers
-from app.launcher import theme
 from app.launcher.controller import VISIBLE_ROWS, LauncherController
+from app.launcher.theme import LauncherTheme
 from app.system import taskbar
 
 WINDOW_WIDTH = 600
@@ -31,9 +32,10 @@ HIDE_DURATION_MS = 200
 
 
 class SearchWindow(QMainWindow):
-    def __init__(self, controller: LauncherController) -> None:
+    def __init__(self, controller: LauncherController, appearance: LauncherTheme) -> None:
         super().__init__()
         self._controller = controller
+        self._appearance = appearance
         self._rows: list = []
         self._selected = -1
         self._visible_start = 0
@@ -50,7 +52,7 @@ class SearchWindow(QMainWindow):
 
         self.setWindowOpacity(0.0)
 
-    # -- construction -----------------------------------------------------
+    # -- 构建界面 ---------------------------------------------------------
     def _build_ui(self) -> None:
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -61,31 +63,33 @@ class SearchWindow(QMainWindow):
 
         search_container = QFrame()
         search_container.setFixedHeight(50)
-        search_container.setStyleSheet(theme.SEARCH_CONTAINER)
+        search_container.setStyleSheet(self._appearance.search_container)
 
         search_input = QLineEdit()
-        search_input.setPlaceholderText("快捷运行...")
-        search_input.setStyleSheet(theme.SEARCH_INPUT)
+        search_input.setPlaceholderText(i18n.t("launcher.placeholder"))
+        search_input.setStyleSheet(self._appearance.search_input)
         search_input.setMaxLength(2000)
+        # 主输入框不需要右键菜单，避免误触后弹出一堆无关操作。
+        search_input.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         search_layout = QVBoxLayout(search_container)
         search_layout.setContentsMargins(0, 0, 0, 0)
         search_layout.addWidget(search_input)
 
         result_list = QListWidget()
         list_container = QWidget()
-        list_container.setStyleSheet(theme.LIST_CONTAINER)
+        list_container.setStyleSheet(self._appearance.list_container)
         list_layout = QVBoxLayout(list_container)
         list_layout.setContentsMargins(0, 0, 0, 0)
         list_layout.setSpacing(0)
         result_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         result_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         result_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        result_list.setStyleSheet(theme.RESULT_LIST)
+        result_list.setStyleSheet(self._appearance.result_list)
         result_list.setVisible(False)
         list_layout.addWidget(result_list)
 
         central = QWidget()
-        central.setStyleSheet(theme.CENTRAL_WIDGET)
+        central.setStyleSheet(self._appearance.central_widget)
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -122,7 +126,7 @@ class SearchWindow(QMainWindow):
         y = int(geometry.height() // 4.5)
         self.setGeometry(x, y, WINDOW_WIDTH, WINDOW_HEIGHT)
 
-    # -- public API -------------------------------------------------------
+    # -- 对外接口 ---------------------------------------------------------
     def show_window(self) -> None:
         if self._showing or self._hiding:
             return
@@ -134,8 +138,8 @@ class SearchWindow(QMainWindow):
         self._controller.begin_session()
         assert self._search_input is not None
         self._search_input.clear()
-        # clear() only emits textChanged when there was text; force a reset so a
-        # previous session's rows can never leak into this one.
+        # clear() 只有在原本有文字时才会发 textChanged；这里强制重置一次，
+        # 保证上一次会话的结果行不会漏到这一次。
         self._controller.set_query("")
 
         self.show()
@@ -154,7 +158,7 @@ class SearchWindow(QMainWindow):
         self._controller.end_session()
         self._animate(0.0, HIDE_DURATION_MS, self._on_hidden)
 
-    # -- animation callbacks ---------------------------------------------
+    # -- 动画回调 ---------------------------------------------------------
     def _on_shown(self) -> None:
         self._showing = False
 
@@ -173,7 +177,7 @@ class SearchWindow(QMainWindow):
         animation.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
         self._animation = animation
 
-    # -- rendering --------------------------------------------------------
+    # -- 渲染 -------------------------------------------------------------
     def _render(self, rows: list, selected: int, visible_start: int) -> None:
         self._rows = rows
         self._selected = selected
@@ -205,7 +209,7 @@ class SearchWindow(QMainWindow):
         assert self._search_input is not None
         self._search_input.setText(text)
 
-    # -- input ------------------------------------------------------------
+    # -- 输入 -------------------------------------------------------------
     def eventFilter(self, watched, event) -> bool:
         if watched is self._search_input and event.type() == QEvent.Type.KeyPress:
             if self._handle_key(event):

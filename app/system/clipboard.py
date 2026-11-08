@@ -1,4 +1,4 @@
-"""Clipboard access."""
+"""剪贴板读写。"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from loguru import logger
 
 
 class PyperclipClipboard:
-    """Thin wrapper so the executor can be tested with a fake clipboard."""
+    """很薄的一层封装，方便用假剪贴板测试执行器。"""
 
     def copy(self, text: str) -> None:
         try:

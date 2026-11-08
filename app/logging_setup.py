@@ -1,9 +1,8 @@
-"""Logging bootstrap built on loguru.
+"""基于 loguru 的日志初始化。
 
-Why loguru instead of the hand written module: thread/process safe queueing,
-rotation and retention built in, and no relative paths. The sink path is always
-absolute (``app.paths.LOG_DIR``), so a stray working directory can never make
-the app scatter ``logs/`` folders around the disk again.
+为什么换成 loguru：线程 / 进程安全的队列、轮转与保留策略都是内置的，
+而且不涉及相对路径。日志文件路径永远是绝对路径（``app.paths.LOG_DIR``），
+这样工作目录再怎么乱，程序也不会在磁盘各处散落 ``logs/`` 文件夹。
 """
 
 from __future__ import annotations
@@ -27,7 +26,7 @@ _LOG_FORMAT = "[{level}] [{time:YYYY-MM-DD HH:mm:ss}] {message}"
 
 
 def setup(name: str) -> Path:
-    """Configure the global logger once and return the log file path."""
+    """配置一次全局日志器，并返回日志文件路径。"""
     global LOG_FILE, _CONFIGURED
     if _CONFIGURED and LOG_FILE is not None:
         return LOG_FILE
@@ -56,7 +55,7 @@ def setup(name: str) -> Path:
 
 
 def fatal(message: str, title: str = "Fast Run - 启动失败") -> None:
-    """Log a fatal error, tell the user and terminate."""
+    """记录致命错误、弹窗告知用户，然后退出进程。"""
     try:
         logger.critical(message)
         logger.complete()
@@ -98,7 +97,7 @@ def _thread_excepthook(args: threading.ExceptHookArgs) -> None:
 
 
 def _message_box(text: str, title: str) -> None:
-    """Native message box so fatal errors also surface from ``.pyw`` processes."""
+    """用系统消息框，这样 ``.pyw`` 进程里的致命错误也能被用户看到。"""
     try:
         ctypes.windll.user32.MessageBoxW(None, str(text), str(title), 0x00000010)
     except Exception:

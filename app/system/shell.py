@@ -1,18 +1,16 @@
-"""cwd-safe launching of files, folders, URLs and commands.
+"""安全地启动文件、文件夹、网址和命令，全程不碰 cwd。
 
-This module exists because of a real bug in the previous version:
+这个模块的存在是为修掉旧版本的一个真实缺陷：
 
-    os.chdir(file_cwd)          # process wide, executed from a worker thread
-    os.startfile(file_path)     # asynchronous, child inherits the cwd
+    os.chdir(file_cwd)          # 改的是整个进程，还跑在线程池里
+    os.startfile(file_path)     # 异步，子进程继承当前 cwd
     os.chdir(original_cwd)
 
-While the cwd was switched, any other thread writing a relative log path
-created a ``logs/`` folder next to the opened file, and two concurrent opens
-could leave the cwd permanently wrong.
+cwd 被切走的那段时间里，任何别的线程写相对路径日志，都会在被打开的文件旁边
+建出一个 ``logs/`` 文件夹；两次并发打开还可能把 cwd 永久留在错误的位置。
 
-The rule here is simple: **never call os.chdir**. The child's working directory
-is expressed as a parameter (``cwd=`` / ``os.startfile(..., cwd=...)``), so this
-process' own cwd is never touched.
+这里的规矩很简单：**绝不调用 os.chdir**。子进程的工作目录一律用参数表达
+（``cwd=`` / ``os.startfile(..., cwd=...)``），进程自己的 cwd 从头到尾不动。
 """
 
 from __future__ import annotations
@@ -32,7 +30,7 @@ CREATE_NEW_CONSOLE = 0x00000010
 
 
 class WindowsOpener:
-    """Concrete :class:`app.core.actions.Opener` implementation."""
+    """:class:`app.core.actions.Opener` 的 Windows 实现。"""
 
     def open_file(self, path: Path, *, cwd: Path, no_window: bool = False) -> None:
         target = Path(path)
@@ -41,9 +39,8 @@ class WindowsOpener:
             return
         try:
             if no_window:
-                # shell=True keeps the old behaviour for .py/.bat targets: the
-                # shell resolves the file association. cwd is passed explicitly
-                # instead of calling os.chdir first.
+                # shell=True 保留旧行为：让 shell 去解析 .py/.bat 的文件关联。
+                # 工作目录用参数传，而不是先 os.chdir 再启动。
                 subprocess.Popen(
                     [str(target)],
                     shell=True,
@@ -62,7 +59,7 @@ class WindowsOpener:
             logger.warning("打开路径 {} 时出错：路径不存在或不是路径", target)
             return
         try:
-            os.startfile(str(target))  # noqa: S606 - shell open is the intent
+            os.startfile(str(target))  # noqa: S606 - 这里就是要交给 shell 打开
         except OSError as error:
             logger.warning("打开路径 {} 时出错：{}", target, error)
 
@@ -96,14 +93,14 @@ class WindowsOpener:
         else:
             logger.warning("未知的调试功能：{}", function)
 
-    # -- internals --------------------------------------------------------
+    # -- 内部实现 ---------------------------------------------------------
     @staticmethod
     def _startfile(target: Path, cwd: Path) -> None:
         try:
             os.startfile(str(target), cwd=str(cwd))
         except TypeError:
-            # Python < 3.10 has no ``cwd`` argument; the shell resolves relative
-            # paths against our own cwd, which is the program directory anyway.
+            # Python 3.10 以前的 startfile 没有 ``cwd`` 参数；反正本进程的 cwd
+            # 就是程序目录，相对路径也能解析对。
             os.startfile(str(target))
 
     def _restart(self) -> None:

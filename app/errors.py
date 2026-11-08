@@ -1,37 +1,27 @@
-"""Domain exceptions.
+"""领域异常。
 
-Keeping them in one module lets the UI layers catch a single base class while
-the core stays free of presentation concerns.
+集中放在一个模块里，界面层只需要捕获一个基类，核心层则完全不用关心
+“怎么把错误显示给用户”。
 """
 
 from __future__ import annotations
 
 
 class FastRunError(Exception):
-    """Base class for every error raised by this application."""
+    """本程序抛出的所有异常的基类。"""
 
 
 class ConfigError(FastRunError):
-    """The config file is missing, unreadable or structurally invalid."""
-
-
-class ValidationError(FastRunError):
-    """An operation failed validation before saving."""
-
-    def __init__(self, index: int, field: str, message: str = "") -> None:
-        super().__init__(message or f"第 {index + 1} 条操作的 {field} 字段不合法")
-        self.index = index
-        self.field = field
-        self.message = message
+    """配置文件缺失、读不出来，或者结构不合法。"""
 
 
 class CalcError(FastRunError):
-    """The expression could not be evaluated (syntax, overflow, timeout)."""
+    """表达式算不出来（语法错误、溢出、超时）。"""
 
 
 class ServiceError(FastRunError):
-    """A remote service (translate / definition / speech) failed."""
+    """远程服务（翻译 / 查词 / 朗读）调用失败。"""
 
 
 class ActionError(FastRunError):
-    """An action could not be performed (missing file, spawn failure)."""
+    """动作执行失败（文件不存在、进程启动失败）。"""

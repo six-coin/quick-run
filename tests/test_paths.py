@@ -15,9 +15,9 @@ def test_config_paths_are_absolute():
     for path in (
         paths.CONFIG_DIR,
         paths.LOG_DIR,
+        paths.LOCALE_DIR,
+        paths.APP_CONFIG_PATH,
         paths.OPERATIONS_PATH,
-        paths.TRANSLATE_PATH,
-        paths.AI_PATH,
         paths.WEB_DIR,
     ):
         assert path.is_absolute()

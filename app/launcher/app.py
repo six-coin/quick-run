@@ -1,8 +1,7 @@
-"""Entry point for the Alt+Space launcher (composition root).
+"""Alt+Space 启动器的入口，也是唯一负责装配的地方。
 
-Everything is wired here and nowhere else: settings -> catalog -> resolver ->
-controller -> window -> hotkey. The rest of the package only receives what it
-needs through constructors, which is what keeps the modules decoupled.
+所有依赖都在这里串起来：配置 → 操作目录 → 解析器 → 控制器 → 窗口 → 热键。
+其余模块只通过构造函数拿到自己需要的东西，这正是它们能保持低耦合的原因。
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from loguru import logger
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
-from app import logging_setup
+from app import i18n, logging_setup
 from app.core.actions import ActionExecutor
 from app.core.catalog import Catalog
 from app.core.navigation import DirectoryNavigator
@@ -22,6 +21,7 @@ from app.core.services.definition import GlmDefinition
 from app.core.services.speech import BaiduSpeech
 from app.core.services.translate import BaiduTranslator
 from app.errors import ConfigError
+from app.launcher import theme
 from app.launcher.controller import LauncherController
 from app.launcher.window import SearchWindow
 from app.settings import load_settings
@@ -31,7 +31,7 @@ from app.system.shell import WindowsOpener
 
 
 class _HotkeyBridge(QObject):
-    """Marshals the hotkey callback from the Win32 thread onto the Qt thread."""
+    """把热键回调从 Win32 线程搬到 Qt 线程上执行。"""
 
     triggered = Signal()
 
@@ -42,16 +42,16 @@ def main() -> None:
         _run()
     except SystemExit:
         raise
-    except Exception as error:  # noqa: BLE001 - last resort, show a dialog
+    except Exception as error:  # noqa: BLE001 - 最后一道防线，直接弹窗
         logger.exception("程序启动失败")
-        logging_setup.fatal(f"程序启动失败：\n{error}")
+        logging_setup.fatal(i18n.t("fatal.startup", error=error))
 
 
 def _run() -> None:
     try:
         settings = load_settings()
     except ConfigError as error:
-        logging_setup.fatal(f"程序无法启动，因为无法读取操作列表：\n{error}")
+        logging_setup.fatal(i18n.t("fatal.operations", error=error))
         return
 
     for warning in settings.warnings:
@@ -60,7 +60,10 @@ def _run() -> None:
     catalog = Catalog(settings.operations)
     resolver = QueryResolver(
         catalog,
-        DirectoryNavigator(),
+        DirectoryNavigator(
+            max_items=settings.config.max_entries,
+            max_depth=settings.config.max_depth,
+        ),
         ai_api_key=settings.ai_api_key,
         translate_enabled=settings.translate is not None,
     )
@@ -83,7 +86,7 @@ def _run() -> None:
         translator=translator,
         definition=definition,
     )
-    window = SearchWindow(controller)
+    window = SearchWindow(controller, theme.for_theme(settings.config.theme))
 
     bridge = _HotkeyBridge()
     bridge.triggered.connect(window.show_window)
@@ -92,7 +95,7 @@ def _run() -> None:
     listener.start()
     ready = listener.wait_ready(3.0)
     if listener.error or not ready:
-        logging_setup.fatal(listener.error or "全局快捷键注册超时，程序无法启动")
+        logging_setup.fatal(listener.error or i18n.t("fatal.hotkey_timeout"))
         return
 
     logger.info("启动器已就绪，按 Alt+Space 唤出")

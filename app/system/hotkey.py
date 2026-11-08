@@ -1,12 +1,11 @@
-"""Global hotkey (Alt+Space) via ``RegisterHotKey`` on a dedicated thread.
+"""在独立线程上用 ``RegisterHotKey`` 注册全局热键（Alt+Space）。
 
-Differences from the old implementation:
+相比旧实现的几处修正：
 
-* ``WinDLL(..., use_last_error=True)`` so a failure actually yields an error
-  code instead of a meaningless ``get_last_error()``;
-* registration failures are reported to the caller instead of silently calling
-  ``os._exit(0)``;
-* the thread can be stopped cleanly, and the hotkey is unregistered.
+* 用 ``WinDLL(..., use_last_error=True)``，失败时才真的拿得到错误码，
+  否则 ``get_last_error()`` 永远是 0；
+* 注册失败会把原因交给调用方去弹窗，而不是悄悄 ``os._exit(0)``；
+* 线程可以干净地停下来，并且会注销热键。
 """
 
 from __future__ import annotations
@@ -17,6 +16,8 @@ from ctypes import wintypes
 from typing import Callable
 
 from loguru import logger
+
+from app import i18n
 
 MOD_ALT = 0x0001
 MOD_CONTROL = 0x0002
@@ -47,7 +48,7 @@ class HotkeyListener(threading.Thread):
         self.error: str | None = None
 
     def wait_ready(self, timeout: float = 3.0) -> bool:
-        """Block until registration finished; False means "unknown yet"."""
+        """阻塞等待注册结果；返回 False 只表示“还不知道”。"""
         return self._ready.wait(timeout)
 
     def run(self) -> None:
@@ -59,7 +60,7 @@ class HotkeyListener(threading.Thread):
             None, self._hotkey_id, self._modifiers, self._virtual_key
         ):
             code = ctypes.get_last_error()
-            self.error = f"全局快捷键 {self._label} 注册失败（错误码 {code}），可能已被其他程序占用"
+            self.error = i18n.t("fatal.hotkey_failed", label=self._label, code=code)
             logger.error(self.error)
             self._ready.set()
             return

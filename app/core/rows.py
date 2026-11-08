@@ -1,4 +1,4 @@
-"""Result rows: the only thing the UI layer knows how to render."""
+"""结果行：界面层唯一需要认识的数据结构。"""
 
 from __future__ import annotations
 
@@ -26,11 +26,10 @@ class RowStatus(str, Enum):
 
 @dataclass
 class ResultRow:
-    """A single line in the result list.
+    """结果列表里的一行。
 
-    ``payload`` is whatever the executor needs (an Operation, a NavEntry, the
-    raw query...). ``value`` holds the copyable result for calculate/definition
-    rows, which keeps the view free of string parsing.
+    ``payload`` 放执行器需要的东西（一个 Operation、一个 NavEntry、原始查询……）。
+    ``value`` 保存计算和查词的可复制结果，这样界面层不用再去解析字符串。
     """
 
     key: str

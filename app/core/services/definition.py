@@ -1,9 +1,10 @@
-"""Zhipu GLM dictionary lookup."""
+"""智谱 GLM 查词。"""
 
 from __future__ import annotations
 
 import requests
 
+from app import i18n
 from app.errors import ServiceError
 
 _ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
@@ -43,7 +44,7 @@ class GlmDefinition:
         try:
             return str(payload["choices"][0]["message"]["content"])
         except (KeyError, IndexError, TypeError):
-            message = "查词失败"
+            message = i18n.t("service.definition_failed")
             if isinstance(payload, dict):
                 message = str(payload.get("error", {}).get("message", message))
             raise ServiceError(message) from None

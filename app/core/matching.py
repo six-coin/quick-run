@@ -1,11 +1,11 @@
-r"""String normalisation and pinyin helpers shared by search and navigation.
+r"""搜索和目录浏览共用的字符串归一化与拼音工具。
 
-The rules are inherited verbatim from the previous implementation:
+规则完全沿用旧实现：
 
-* keywords are matched with ``startswith`` (prefix), never ``in``;
-* directory keywords and queries are reduced to ``[a-z0-9]`` before matching,
-  which makes ``play`` match ``Play|wan`` and ``e:\play`` alike;
-* Chinese names get a pinyin form so ``biji`` finds ``笔记``.
+* 关键词用 ``startswith`` 做前缀匹配，绝不用 ``in``；
+* 文件夹操作的关键词和查询都会先压成 ``[a-z0-9]``，所以 ``play`` 既能匹配
+  ``Play|wan`` 也能匹配 ``e:\play``；
+* 中文名字会额外生成一份拼音，所以 ``biji`` 能找到 ``笔记``。
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ _CJK_END = "\u9fff"
 
 
 def normalize_alnum(text: str) -> str:
-    """Lowercase and keep only ``a-z0-9``."""
+    """转小写并只保留 ``a-z0-9``。"""
     return "".join(ch for ch in text.lower() if ("a" <= ch <= "z" or "0" <= ch <= "9"))
 
 
 def to_pinyin(name: str) -> str:
-    """Build a searchable pinyin string, keeping latin segments in place."""
+    """生成可搜索的拼音串，英文和数字片段原样保留。"""
     parts: list[str] = []
     buffer = ""
     for char in name:
@@ -49,10 +49,10 @@ def starts_with_any(keywords: list[str], query: str) -> bool:
 
 
 def match_position(name: str, pinyin: str, query: str) -> int:
-    """Position of the first hit in the name, falling back to pinyin.
+    """名字里第一次命中的位置，名字里没有就退回拼音。
 
-    Used to rank navigation results; ``-1`` means "matched via pinyin only at
-    an unknown offset", which sorts after direct name matches.
+    用于给目录浏览的结果排序；``-1`` 表示“只在拼音里命中，位置未知”，
+    会排在直接命中名字的条目后面。
     """
     position = name.lower().find(query)
     if position >= 0:

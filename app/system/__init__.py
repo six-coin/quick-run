@@ -1,1 +1,1 @@
-"""OS integration layer: the only place that talks to Windows."""
+"""系统集成层：整个项目里唯一直接和 Windows 打交道的地方。"""

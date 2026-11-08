@@ -1,4 +1,4 @@
-"""Entry point for the pywebview operation manager."""
+"""操作管理器的入口（pywebview）。"""
 
 from __future__ import annotations
 
@@ -7,10 +7,12 @@ import ctypes
 import webview
 from loguru import logger
 
-from app import logging_setup, paths
+from app import i18n, logging_setup, paths
 from app.errors import ConfigError
 from app.manager.api import ManagerApi
-from app.manager.dialogs import confirm_unsaved
+
+#: 网页首帧渲染出来之前，窗口用这个底色，避免闪一下白。
+_BACKGROUND = {"light": "#f0f2f5", "dark": "#14161a"}
 
 
 def main() -> None:
@@ -19,20 +21,21 @@ def main() -> None:
     try:
         api = ManagerApi()
     except ConfigError as error:
-        logging_setup.fatal(f"程序无法继续运行，因为无法读取操作列表：\n{error}")
+        logging_setup.fatal(i18n.t("fatal.config", error=error))
         return
 
     width, height = _window_size()
     min_width, min_height = _min_size()
+    theme = api.get_state()["theme"]
 
     window = webview.create_window(
-        "Fast Run 操作管理器",
+        i18n.t("manager.title"),
         str(paths.WEB_DIR / "index.html"),
         js_api=api,
         width=width,
         height=height,
         min_size=(min_width, min_height),
-        background_color="#f0f2f5",
+        background_color=_BACKGROUND.get(theme, _BACKGROUND["light"]),
     )
     api.attach(window)
     window.events.closing += _make_closing_handler(api)
@@ -42,15 +45,17 @@ def main() -> None:
 
 
 def _make_closing_handler(api: ManagerApi):
-    def on_closing():
-        if not api.dirty:
-            return True
+    """取消关闭，让网页在自己的界面里问用户。
 
-        choice = confirm_unsaved()
-        if choice == "discard":
+    ``closing`` 在 UI 线程执行，所以提示由工作线程推过去
+    （见 ``ManagerApi.request_close_prompt``）。页面实在弹不出来时，
+    API 内部会退回系统对话框。
+    """
+
+    def on_closing():
+        if not api.dirty or api.close_confirmed:
             return True
-        if choice == "save":
-            return bool(api.save().get("ok"))
+        api.request_close_prompt()
         return False
 
     return on_closing

@@ -1,7 +1,7 @@
-"""Baidu TTS playback through python-vlc.
+"""用 python-vlc 播放百度语音合成。
 
-``vlc`` is imported lazily: the app must keep working when the user has not
-installed python-vlc or the VLC desktop player, it just loses pronunciation.
+``vlc`` 是延迟导入的：用户没装 python-vlc 或 VLC 播放器时程序要照常可用，
+只是少了朗读功能。
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ class BaiduSpeech:
         self._player_factory = player_factory
 
     def speak(self, text: str) -> bool:
-        """Play the pronunciation; returns False instead of raising."""
+        """播放发音；失败时返回 False 而不是抛异常。"""
         try:
             player = self._create_player(tts_url(text))
             player.play()
@@ -37,6 +37,6 @@ class BaiduSpeech:
     def _create_player(self, url: str) -> Any:
         if self._player_factory is not None:
             return self._player_factory(url)
-        import vlc  # noqa: PLC0415 - deliberately lazy
+        import vlc  # noqa: PLC0415 - 有意延迟导入
 
         return vlc.MediaPlayer(url)

@@ -1,75 +1,44 @@
-"""Everything the web UI is allowed to call.
+"""网页界面允许调用的全部接口。
 
-One method per user intention, each returning a complete state snapshot so the
-front end stays a pure renderer. Operations live in ordered, switchable groups;
-the manager edits that structure directly.
+一个用户意图对应一个方法，每个方法都返回完整的状态快照，前端因此可以写成
+纯粹的渲染器。操作存放在有序、可整体开关的分组里，管理器直接编辑这个结构。
 """
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 import webview
 from loguru import logger
 
+from app import i18n
 from app import settings as settings_module
+from app.manager.dialogs import confirm_unsaved
 from app.models import (
-    DEBUG_FUNCTIONS,
-    DEFAULT_GROUP_NAME,
-    FIELD_LABELS,
-    TYPE_LABELS,
+    DEBUG_FUNCTION_VALUES,
+    MAX_EXPLORE_DEPTH,
     TYPE_ORDER,
     Operation,
     OperationGroup,
     OperationType,
+    debug_label,
     default_arguments,
+    field_label,
+    type_label,
     validate_groups,
 )
+from app.system.theme import normalize_theme
 
-HELP_HTML = """
-<h3>一、分组</h3>
-<ul>
-    <li>操作按分组组织。分组之间的顺序，就是启动器里结果的排列顺序。</li>
-    <li>点击分组标题可以编辑分组名称，或用右侧开关整组关闭；关闭的分组不参与搜索。</li>
-    <li>拖拽分组标题可以调整分组顺序。</li>
-</ul>
-
-<h3>二、操作类型</h3>
-<ul>
-    <li><b>打开文件</b>：用系统默认程序打开一个文件。可勾选“无窗口运行”以避免弹出命令行窗口。</li>
-    <li><b>打开文件夹</b>：用文件资源管理器打开一个文件夹。可勾选“允许浏览子文件夹”以启用输入空格浏览子目录的功能（需设置探索深度）。</li>
-    <li><b>打开网页</b>：用默认浏览器打开一个网址。</li>
-    <li><b>执行命令</b>：在命令行中执行一条命令。</li>
-    <li><b>程序调试</b>：重启或关闭 Fast Run 程序。</li>
-</ul>
-
-<h3>三、字段说明</h3>
-<ul>
-    <li><b>显示名称</b>：在结果列表中显示的文本。</li>
-    <li><b>运行方式</b>：选择操作的类型。</li>
-    <li><b>匹配字串</b>：只允许小写字母 <code>a-z</code> 和分隔符 <code>|</code>，前缀匹配。保存时会自动清理非法字符与多余的 <code>|</code>。</li>
-    <li><b>切换到组</b>：把当前操作移动到别的分组（操作详情底部的按钮）。</li>
-</ul>
-
-<h3>四、文件夹浏览</h3>
-<ul>
-    <li>勾选“允许浏览子文件夹”后，在主搜索框输入关键词+空格即可进入该文件夹的子文件浏览模式。</li>
-    <li>探索深度控制最多可以进入多少层子文件夹。0 表示仅显示根目录内容，2 表示可以进入一层子文件夹。</li>
-    <li>深度最大不能超过 5。子文件夹内条目超过 100 个的不会被扫描。</li>
-    <li>浏览模式下支持拼音搜索和序号选择（例：<code>关键词 a#2</code>）。</li>
-</ul>
-
-<h3>五、操作方式</h3>
-<ul>
-    <li>拖拽操作可以调整组内顺序，拖到别的分组标题上即可移动到该组末尾。</li>
-    <li>按 <code>Ctrl + S</code> 保存，<code>Ctrl + F</code> 搜索。</li>
-    <li>关闭窗口时若有未保存的更改，会询问是否保存。</li>
-</ul>
-"""
+#: 分组名为空时使用的兜底文案键。刻意起得中性一点，避免看起来像程序内置的分组。
+FALLBACK_GROUP_NAME_KEY = "manager.unnamed_group"
 
 
 class ManagerApi:
     def __init__(self) -> None:
+        self._config = settings_module.load_app_config()
+        i18n.set_language(self._config.language)
+
         self._groups: list[OperationGroup] = settings_module.load_groups()
         self._dirty = False
         self._errors: list[dict[str, Any]] = []
@@ -80,6 +49,11 @@ class ManagerApi:
         self._sel_index = 0
         self._select_initial()
 
+        # 关闭确认与页面之间的握手。``closing`` 回调跑在 UI 线程上，
+        # 在那里碰网页会死锁，所以只能交给工作线程去弹页面自己的对话框。
+        self._close_confirmed = False
+        self._close_prompting = False
+
     def attach(self, window) -> None:
         self._window = window
 
@@ -87,14 +61,43 @@ class ManagerApi:
     def dirty(self) -> bool:
         return self._dirty
 
-    # -- read -------------------------------------------------------------
+    # -- 读取 -------------------------------------------------------------
     def get_state(self) -> dict[str, Any]:
         return self._state()
 
-    def help_html(self) -> str:
-        return HELP_HTML
+    def get_strings(self) -> dict[str, Any]:
+        """返回当前语言的文案表，网页启动时取一次。"""
+        return {
+            "language": i18n.language(),
+            "strings": i18n.strings(),
+        }
 
-    # -- selection --------------------------------------------------------
+    def help_html(self) -> str:
+        return i18n.help_html()
+
+    def get_settings(self) -> dict[str, Any]:
+        """设置弹窗需要的全部字段。"""
+        return {
+            "language": self._config.language,
+            "theme": self._config.theme,
+            "max_depth": self._config.max_depth,
+            "max_entries": self._config.max_entries,
+            "translate_appid": self._config.translate_appid,
+            "translate_secret": self._config.translate_secret,
+            "ai_api_key": self._config.ai_api_key,
+            "languages": [
+                {"value": code, "label": label}
+                for code, label in i18n.LANGUAGE_NAMES.items()
+            ],
+            "themes": [
+                {"value": "light", "label": i18n.t("settings.light")},
+                {"value": "dark", "label": i18n.t("settings.dark")},
+            ],
+            "max_depth_limit": MAX_EXPLORE_DEPTH,
+            "max_entries_range": list(settings_module.MAX_ENTRIES_RANGE),
+        }
+
+    # -- 选择 -------------------------------------------------------------
     def select_operation(self, group: int, index: int) -> dict[str, Any]:
         if self._valid_operation(group, index):
             self._sel_kind, self._sel_group, self._sel_index = "operation", group, index
@@ -105,21 +108,28 @@ class ManagerApi:
             self._sel_kind, self._sel_group = "group", group
         return self._state()
 
-    # -- structure --------------------------------------------------------
-    def add_operation(self, group: int | None = None) -> dict[str, Any]:
-        target = self._resolve_group(group)
+    # -- 结构 -------------------------------------------------------------
+    def add_operation(self, group: int) -> dict[str, Any]:
+        """在指定分组的最前面插入一条空操作。
+
+        这里没有“当前分组”或“默认分组”之类的兜底：调用方（分组行上的加号、
+        分组详情页的按钮）永远知道自己要往哪个组里加。
+        """
+        if not 0 <= group < len(self._groups):
+            return self._state()
+
         operation = Operation(
             type=OperationType.FILE, arguments=default_arguments(OperationType.FILE)
         )
-        self._groups[target].operations.insert(0, operation)
-        self._sel_kind, self._sel_group, self._sel_index = "operation", target, 0
+        self._groups[group].operations.insert(0, operation)
+        self._sel_kind, self._sel_group, self._sel_index = "operation", group, 0
         self._dirty = True
 
-        group = self._groups[target]
-        if not group.enabled:
+        target = self._groups[group]
+        if not target.enabled:
             return self._state(
                 ok=True,
-                message=f"已添加到「{group.name}」，但该分组已关闭，不会出现在启动器中",
+                message=i18n.t("manager.added_disabled", name=target.name),
             )
         return self._state()
 
@@ -145,7 +155,7 @@ class ManagerApi:
         if not 0 <= group < len(self._groups):
             return self._state()
         if len(self._groups) == 1:
-            return self._state(ok=False, message="至少要保留一个分组")
+            return self._state(ok=False, message=i18n.t("manager.only_one_group"))
         del self._groups[group]
         self._sel_kind, self._sel_group = "group", min(group, len(self._groups) - 1)
         self._dirty = True
@@ -205,7 +215,7 @@ class ManagerApi:
         self._dirty = True
         return self._state()
 
-    # -- field edits ------------------------------------------------------
+    # -- 字段编辑 ---------------------------------------------------------
     def set_field(self, group: int, index: int, field: str, value: str) -> dict[str, Any]:
         if not self._valid_operation(group, index) or field not in ("display", "keywords"):
             return {"ok": False}
@@ -247,13 +257,47 @@ class ManagerApi:
         self._dirty = True
         return self._state()
 
-    # -- persistence ------------------------------------------------------
+    # -- 应用设置 ---------------------------------------------------------
+    def set_language(self, value: str) -> dict[str, Any]:
+        """切换界面语言并立刻写盘，网页随后会重新拉一次文案表。"""
+        language = i18n.set_language(value)
+        self._config.language = language
+        self._persist_config()
+        return self._state()
+
+    def set_theme(self, value: str) -> dict[str, Any]:
+        self._config.theme = normalize_theme(value)
+        self._persist_config()
+        return self._state()
+
+    def update_settings(self, patch: dict[str, Any]) -> dict[str, Any]:
+        """保存设置弹窗里除语言以外的字段。"""
+        if not isinstance(patch, dict):
+            return self._state()
+
+        if "max_depth" in patch:
+            self._config.max_depth = settings_module.clamp_depth(patch["max_depth"])
+        if "max_entries" in patch:
+            self._config.max_entries = settings_module.clamp_entries(patch["max_entries"])
+        if "translate_appid" in patch:
+            self._config.translate_appid = str(patch["translate_appid"] or "").strip()
+        if "translate_secret" in patch:
+            self._config.translate_secret = str(patch["translate_secret"] or "").strip()
+        if "ai_api_key" in patch:
+            self._config.ai_api_key = str(patch["ai_api_key"] or "").strip()
+        if "theme" in patch:
+            self._config.theme = normalize_theme(patch["theme"])
+
+        self._persist_config()
+        return self._state()
+
+    # -- 持久化 -----------------------------------------------------------
     def save(self) -> dict[str, Any]:
-        # Normalise first: keyword cleanup can turn "|||" into an empty value,
-        # which must then be reported as a validation error.
+        # 先归一化再校验：清理匹配字串可能把 “|||” 变成空值，
+        # 这种情况必须被当成校验错误报出来。
         cleaned = 0
         for group in self._groups:
-            group.name = (group.name or "").strip() or DEFAULT_GROUP_NAME
+            group.name = (group.name or "").strip() or i18n.t(FALLBACK_GROUP_NAME_KEY)
             for operation in group.operations:
                 before = operation.keywords
                 operation.normalize()
@@ -264,7 +308,7 @@ class ManagerApi:
         if error is not None:
             group = self._groups[error.group]
             operation = group.operations[error.index]
-            name = operation.display or "未命名操作"
+            name = operation.display or i18n.t("manager.unnamed_operation")
             self._errors = [error.to_dict()]
             self._sel_kind, self._sel_group, self._sel_index = (
                 "operation",
@@ -272,44 +316,103 @@ class ManagerApi:
                 error.index,
             )
             return self._state(
-                ok=False, message=f"【{group.name} / {name}】的【{error.label}】不能为空。"
+                ok=False,
+                message=i18n.t(
+                    "manager.invalid_field",
+                    group=group.name,
+                    name=name,
+                    field=error.label,
+                ),
             )
 
         try:
             settings_module.save_groups(self._groups)
-        except Exception as failure:  # noqa: BLE001 - surfaced to the UI
+        except Exception as failure:  # noqa: BLE001 - 需要把原因显示给用户
             logger.exception("保存操作列表失败")
-            return self._state(ok=False, message=f"无法写入配置文件：\n{failure}")
+            return self._state(
+                ok=False, message=i18n.t("manager.save_failed", error=failure)
+            )
 
         self._errors = []
         self._dirty = False
-        message = "文件已成功保存"
-        if cleaned:
-            message += f"（已按规则清理 {cleaned} 条匹配字串）"
+        message = (
+            i18n.t("manager.saved_cleaned", count=cleaned)
+            if cleaned
+            else i18n.t("manager.saved")
+        )
         return self._state(ok=True, message=message)
 
-    # -- dialogs ----------------------------------------------------------
+    # -- 对话框 -----------------------------------------------------------
     def browse_file(self) -> str:
         return self._pick(webview.FileDialog.OPEN)
 
     def browse_dir(self) -> str:
         return self._pick(webview.FileDialog.FOLDER)
 
-    # -- closing ----------------------------------------------------------
-    def request_close(self) -> dict[str, str]:
-        return {"action": "ask" if self._dirty else "close"}
+    # -- 关闭 -------------------------------------------------------------
+    @property
+    def close_confirmed(self) -> bool:
+        return self._close_confirmed
+
+    def request_close_prompt(self) -> None:
+        """请网页弹出自己的关闭确认框。
+
+        必须从工作线程调用：``closing`` 在 UI 线程执行，在那里调用
+        ``evaluate_js`` 会等同一个正在执行回调的消息循环，直接死锁。
+        """
+        if self._close_prompting:
+            return
+        self._close_prompting = True
+        threading.Thread(target=self._push_close_prompt, daemon=True).start()
+
+    def answer_close(self, action: str) -> dict[str, Any]:
+        if action == "close":
+            self.force_close()
+        return {"ok": True}
 
     def force_close(self) -> None:
+        self._close_confirmed = True
         if self._window is not None:
             self._window.destroy()
 
-    # -- internals --------------------------------------------------------
+    # -- 内部实现 ---------------------------------------------------------
+    def _persist_config(self) -> None:
+        try:
+            settings_module.save_app_config(self._config)
+        except Exception as error:  # noqa: BLE001 - 写失败不该让界面崩掉
+            logger.exception("保存应用配置失败：{}", error)
+
+    def _push_close_prompt(self) -> None:
+        shown = False
+        try:
+            if self._window is not None:
+                shown = bool(
+                    self._window.evaluate_js(
+                        "window.fastrun ? window.fastrun.askUnsaved() : false"
+                    )
+                )
+        except Exception as error:  # noqa: BLE001 - 兜底走系统对话框
+            logger.warning("页面内无法显示未保存提示：{}", error)
+        finally:
+            self._close_prompting = False
+
+        if not shown:
+            self._native_close_prompt()
+
+    def _native_close_prompt(self) -> None:
+        """最后手段：页面已经不在了，只能退回系统对话框。"""
+        choice = confirm_unsaved()
+        if choice == "discard":
+            self.force_close()
+        elif choice == "save" and self.save().get("ok"):
+            self.force_close()
+
     def _pick(self, dialog_type: int) -> str:
         if self._window is None:
             return ""
         try:
             result = self._window.create_file_dialog(dialog_type, allow_multiple=False)
-        except Exception as error:  # noqa: BLE001 - dialog is best effort
+        except Exception as error:  # noqa: BLE001 - 选择框失败不影响手输路径
             logger.warning("打开文件选择框失败：{}", error)
             return ""
         if not result:
@@ -324,21 +427,13 @@ class ManagerApi:
             and 0 <= index < len(self._groups[group].operations)
         )
 
-    def _resolve_group(self, group: int | None) -> int:
-        """Explicit index, otherwise the default group (the bottom-left button)."""
-        if group is not None and 0 <= group < len(self._groups):
-            return group
-        for index, existing in enumerate(self._groups):
-            if existing.name == DEFAULT_GROUP_NAME:
-                return index
-        return 0
-
     def _next_group_name(self) -> str:
         existing = {group.name for group in self._groups}
+        prefix = i18n.t("manager.new_group")
         index = 1
-        while f"新分组 {index}" in existing:
+        while f"{prefix} {index}" in existing:
             index += 1
-        return f"新分组 {index}"
+        return f"{prefix} {index}"
 
     def _select_initial(self) -> None:
         if self._groups and self._groups[0].operations:
@@ -367,9 +462,10 @@ class ManagerApi:
                             "index": index,
                             "group": group_index,
                             "display": operation.display,
-                            "label": operation.display or "未命名操作",
+                            "label": operation.display
+                            or i18n.t("manager.unnamed_operation"),
                             "type": operation.type,
-                            "type_label": TYPE_LABELS.get(operation.type, operation.type),
+                            "type_label": type_label(operation.type),
                             "keywords": operation.keywords,
                             "arguments": dict(operation.arguments),
                         }
@@ -387,10 +483,21 @@ class ManagerApi:
             "enabled_total": enabled_total,
             "dirty": self._dirty,
             "errors": list(self._errors),
-            "types": [{"value": value, "label": TYPE_LABELS[value]} for value in TYPE_ORDER],
-            "debug_functions": [
-                {"value": value, "label": label} for value, label in DEBUG_FUNCTIONS
+            "types": [
+                {"value": value, "label": type_label(value)} for value in TYPE_ORDER
             ],
-            "field_labels": FIELD_LABELS,
-            "default_group_name": DEFAULT_GROUP_NAME,
+            "debug_functions": [
+                {"value": value, "label": debug_label(value)}
+                for value in DEBUG_FUNCTION_VALUES
+            ],
+            "field_labels": {
+                name: field_label(name)
+                for name in ("display", "type", "keywords", "path", "dir", "url", "command")
+            },
+            "language": self._config.language,
+            "theme": self._config.theme,
+            "navigation": {
+                "max_depth": self._config.max_depth,
+                "max_entries": self._config.max_entries,
+            },
         }

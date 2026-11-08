@@ -1,4 +1,4 @@
-"""Baidu translate API client (same endpoint and signing as before)."""
+"""百度翻译接口客户端，端点与签名方式与旧版本一致。"""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import time
 
 import requests
 
+from app import i18n
 from app.errors import ServiceError
 
 _ENDPOINT = "https://fanyi-api.baidu.com/api/trans/vip/translate"
@@ -33,13 +34,14 @@ class BaiduTranslator:
         try:
             response = requests.get(_ENDPOINT, params=params, timeout=self._timeout)
             payload = response.json()
-        except Exception as error:  # network, timeout, invalid json
-            raise ServiceError(f"请求异常：{error}") from error
+        except Exception as error:  # 网络异常、超时、返回的不是 JSON
+            raise ServiceError(i18n.t("service.request_failed", error=error)) from error
 
         if "trans_result" in payload:
             try:
                 return str(payload["trans_result"][0]["dst"])
             except (KeyError, IndexError, TypeError) as error:
-                raise ServiceError(f"请求异常：{error}") from error
+                raise ServiceError(i18n.t("service.request_failed", error=error)) from error
 
-        raise ServiceError(f"翻译失败：{payload.get('error_msg', '未知错误')}")
+        message = payload.get("error_msg", i18n.t("service.unknown_error"))
+        raise ServiceError(i18n.t("service.translate_failed", message=message))

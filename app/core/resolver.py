@@ -1,14 +1,13 @@
-"""Query -> result rows.
+"""把输入框里的文字变成结果行。
 
-This is the state machine that used to live inside ``SearchWindow.filter_operations``.
-It is deliberately pure: given a query it returns the rows to show plus the
-asynchronous requests that should be scheduled. The precedence is unchanged:
+这里其实就是旧版 ``SearchWindow.filter_operations`` 里那套状态机，只是被抽成了
+纯函数式的模块：给一段查询，返回要显示的行和需要异步发起的请求。优先级没变：
 
-    1. empty query            -> nothing
-    2. query ending with `    -> internal rows only
-    3. contains a space       -> directory navigation if the head matches
-    4. any operation matches  -> those operations
-    5. otherwise              -> search / calculate / definition / translate
+    1. 空查询              -> 什么都不显示
+    2. 以 ` 结尾           -> 只看内置功能（搜索 / 计算 / 查词 / 翻译）
+    3. 含有空格            -> 命中文件夹操作时进入目录浏览
+    4. 命中任意操作        -> 显示这些操作
+    5. 其他情况            -> 搜索 / 计算 / 查词 / 翻译
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from app import paths
+from app import i18n, paths
 from app.core import calculator
 from app.core.catalog import Catalog
 from app.core.navigation import ERR_BAD_INDEX, DirectoryNavigator, NavEntry
@@ -25,16 +24,18 @@ from app.core.rows import ResultRow, RowKind, RowStatus
 from app.errors import CalcError
 from app.models import Operation, OperationType
 
+#: 超过这个长度就不做实时翻译，避免又长又慢的请求。
 LIVE_TRANSLATE_MAX_LENGTH = 30
+
 CALC_DEBOUNCE_MS = 50
 TRANSLATE_DEBOUNCE_MS = 500
 
 
 def parse_index(text: str) -> tuple[str, int] | None:
-    """Split ``keyword#3`` into ``("keyword", 3)``.
+    """把 ``关键词#3`` 拆成 ``("关键词", 3)``。
 
-    Returns ``None`` when the suffix is missing, not a positive number, or has
-    no keyword in front of it -- so a lone ``#`` is simply ignored.
+    后缀缺失、不是正整数，或者 ``#`` 前面没有关键词时返回 ``None``，
+    所以单独一个 ``#`` 会被自然忽略。
     """
     if "#" not in text:
         return None
@@ -48,9 +49,10 @@ def parse_index(text: str) -> tuple[str, int] | None:
     return base, number
 
 
-
 @dataclass(frozen=True)
 class PendingRequest:
+    """一条需要延迟发起的异步请求（计算或翻译）。"""
+
     key: str
     kind: RowKind
     payload: Any
@@ -78,15 +80,19 @@ class QueryResolver:
 
     def resolve(self, query: str) -> Resolution:
         text = (query or "").replace("\n", " ")
-        # A query of only whitespace is "nothing typed": it used to fall into
-        # the calculator (space is a valid calculator character) and show a
-        # syntax error.
+        # 全是空白等于“什么都没输入”。空格本身是计算器的合法字符，不拦的话
+        # 会掉进计算分支报语法错误。
         if not text.strip():
             return Resolution()
 
         stripped = text.strip()
         if stripped.endswith("`"):
             return self._internal(stripped[:-1].strip())
+
+        # 结尾的 “#” 是 “关键词#2” 的中间状态，先忽略它，
+        # 免得一边输数字结果列表一边跳。
+        if len(text) > 1 and text.endswith("#"):
+            return self.resolve(text[:-1])
 
         if " " in text:
             head, _, nav_text = text.partition(" ")
@@ -114,8 +120,8 @@ class QueryResolver:
                 )
             return self._internal(text)
 
-        # Outside folder navigation, ``keyword#n`` picks the n-th match so it
-        # can be executed directly with Enter.
+        # 不在文件夹浏览状态时，``关键词#n`` 直接选出第 n 个匹配项，
+        # 这样按一次回车就能执行。
         indexed = parse_index(text)
         if indexed is not None:
             base, number = indexed
@@ -132,10 +138,9 @@ class QueryResolver:
         return self._internal(text)
 
     def _explore_target(self, head: str) -> Operation | None:
-        """Directory operation addressed by the token before the first space.
+        """第一个空格前的词指向的文件夹操作。
 
-        ``play#2`` addresses the second match explicitly; a bare token keeps the
-        old prefix behaviour.
+        ``play#2`` 显式指定第 2 个匹配项；不带序号时沿用前缀匹配的老规则。
         """
         indexed = parse_index(head)
         if indexed is None:
@@ -150,16 +155,16 @@ class QueryResolver:
             return candidate
         return None
 
-    # -- internal rows ----------------------------------------------------
+    # -- 内置功能 ---------------------------------------------------------
     def _internal(self, text: str) -> Resolution:
-        rows = [self._row(RowKind.SEARCH, f"搜索：{text}", payload=text)]
+        rows = [self._row(RowKind.SEARCH, i18n.t("launcher.search", text=text), payload=text)]
         pending: list[PendingRequest] = []
 
         if calculator.looks_like_calculation(text):
             row = self._row(RowKind.CALCULATE, "", payload=text)
             if calculator.needs_async(text):
                 row.status = RowStatus.LOADING
-                row.text = "计算：计算中..."
+                row.text = i18n.t("launcher.calculating")
                 pending.append(
                     PendingRequest(row.key, RowKind.CALCULATE, text, CALC_DEBOUNCE_MS)
                 )
@@ -167,11 +172,11 @@ class QueryResolver:
                 try:
                     row.value = calculator.evaluate(text)
                     row.status = RowStatus.DONE
-                    row.text = f"计算：{row.value}"
+                    row.text = i18n.t("launcher.calculate", text=row.value)
                 except CalcError as error:
                     row.value = str(error)
                     row.status = RowStatus.FAILED
-                    row.text = f"计算：{error}"
+                    row.text = i18n.t("launcher.calculate", text=error)
             rows.insert(0, row)
             return Resolution(rows, pending)
 
@@ -179,25 +184,30 @@ class QueryResolver:
             rows.append(
                 self._row(
                     RowKind.DEFINITION,
-                    f"查词：{text}（回车或双击开始查词）",
+                    i18n.t("launcher.definition", text=text),
                     payload=text,
                 )
             )
 
         if self._translate_enabled and len(text) < LIVE_TRANSLATE_MAX_LENGTH:
             row = self._row(
-                RowKind.TRANSLATE, "翻译：等待中...", payload=text, status=RowStatus.LOADING
+                RowKind.TRANSLATE,
+                i18n.t("launcher.translate_waiting"),
+                payload=text,
+                status=RowStatus.LOADING,
             )
             rows.append(row)
             pending.append(
                 PendingRequest(row.key, RowKind.TRANSLATE, text, TRANSLATE_DEBOUNCE_MS)
             )
         else:
-            rows.append(self._row(RowKind.TRANSLATE, f"翻译：{text}", payload=text))
+            rows.append(
+                self._row(RowKind.TRANSLATE, i18n.t("launcher.translate", text=text), payload=text)
+            )
 
         return Resolution(rows, pending)
 
-    # -- row factories ----------------------------------------------------
+    # -- 行工厂 -----------------------------------------------------------
     @staticmethod
     def _row(
         kind: RowKind,
@@ -211,10 +221,13 @@ class QueryResolver:
         return self._row(RowKind.EXTERNAL, operation.display, payload=operation)
 
     def _explore_row(self, entry: NavEntry, index: int) -> ResultRow:
-        prefix = "文件夹：" if entry.is_dir else "文件："
+        key = "launcher.folder" if entry.is_dir else "launcher.file"
         return self._row(
-            RowKind.EXPLORE, f"[{index}] {prefix}{entry.name}", payload=entry
+            RowKind.EXPLORE, f"[{index}] {i18n.t(key, name=entry.name)}", payload=entry
         )
 
-    def _error_row(self, message: str) -> ResultRow:
-        return self._row(RowKind.ERROR, f"错误：{message}", payload=message)
+    def _error_row(self, message_key: str) -> ResultRow:
+        message = i18n.t(message_key)
+        return self._row(
+            RowKind.ERROR, i18n.t("launcher.error", message=message), payload=message
+        )

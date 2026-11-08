@@ -1,1 +1,1 @@
-"""pywebview based operation manager."""
+"""基于 pywebview 的操作管理器。"""

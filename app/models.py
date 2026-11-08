@@ -1,9 +1,10 @@
-"""Domain model for a single operation entry.
+"""单条操作的领域模型。
 
-The JSON layout is a hard contract with existing ``config/operations.json``
-files and must stay byte-compatible:
+JSON 结构是对外的硬约定，必须保持稳定：
 
-    {"display": str, "type": str, "keywords": str, "arguments": {...}}
+    {"display": 字符串, "type": 字符串, "keywords": 字符串, "arguments": {...}}
+
+分组只是操作的有序容器，本身不带任何行为。
 """
 
 from __future__ import annotations
@@ -12,11 +13,14 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from app import i18n
+
+#: 单条操作允许的探索深度上限，属于安全边界而不是用户偏好。
 MAX_EXPLORE_DEPTH = 5
 
 
 class OperationType:
-    """String constants instead of an Enum so the JSON round-trip stays trivial."""
+    """用字符串常量而不是枚举，JSON 往返最省事。"""
 
     FILE = "file"
     DIR = "dir"
@@ -25,7 +29,7 @@ class OperationType:
     DEBUG = "debug"
 
 
-#: Display order of the "运行方式" selector; kept identical to the old manager.
+#: “运行方式”选择器的显示顺序。
 TYPE_ORDER: tuple[str, ...] = (
     OperationType.FILE,
     OperationType.DIR,
@@ -34,15 +38,7 @@ TYPE_ORDER: tuple[str, ...] = (
     OperationType.DEBUG,
 )
 
-
-TYPE_LABELS: dict[str, str] = {
-    OperationType.FILE: "打开文件",
-    OperationType.DIR: "打开文件夹",
-    OperationType.URL: "打开网页",
-    OperationType.CMD: "执行命令",
-    OperationType.DEBUG: "程序调试",
-}
-
+#: 每种类型需要用户填写的必填参数。
 TYPE_DEFAULTS: dict[str, dict[str, Any]] = {
     OperationType.FILE: {"path": "", "no_window": False},
     OperationType.DIR: {"dir": "", "allow_explore": True, "explore_depth": 0},
@@ -51,19 +47,10 @@ TYPE_DEFAULTS: dict[str, dict[str, Any]] = {
     OperationType.DEBUG: {"function": "restart"},
 }
 
-DEBUG_FUNCTIONS = (("restart", "重启程序"), ("close", "关闭程序"))
+#: “程序调试”里可选的调试动作。
+DEBUG_FUNCTION_VALUES: tuple[str, ...] = ("restart", "close")
 
-FIELD_LABELS: dict[str, str] = {
-    "display": "显示名称",
-    "type": "运行方式",
-    "keywords": "匹配字串",
-    "path": "文件路径",
-    "dir": "文件夹路径",
-    "url": "网页地址",
-    "command": "执行命令",
-}
-
-#: Which argument key each type requires to be non-empty.
+#: 哪种类型的哪个参数不能为空。
 REQUIRED_ARGUMENT: dict[str, str] = {
     OperationType.FILE: "path",
     OperationType.DIR: "dir",
@@ -72,15 +59,30 @@ REQUIRED_ARGUMENT: dict[str, str] = {
 }
 
 
+def type_label(op_type: str) -> str:
+    """运行方式在界面上的名字。"""
+    return i18n.t(f"type.{op_type}")
+
+
+def field_label(field_name: str) -> str:
+    """字段在界面上的名字。"""
+    return i18n.t(f"field.{field_name}")
+
+
+def debug_label(value: str) -> str:
+    """调试动作在界面上的名字。"""
+    return i18n.t(f"debug.{value}")
+
+
 def default_arguments(op_type: str) -> dict[str, Any]:
     return dict(TYPE_DEFAULTS.get(op_type, {}))
 
 
 def sanitize_keywords(raw: str) -> str:
-    """Keywords may only contain ``a-z`` and ``|``.
+    """匹配字串只允许 ``a-z`` 与 ``|``。
 
-    Lowercases, drops every other character, removes empty segments (so
-    ``"a||b|"`` becomes ``"a|b"``) and returns ``""`` when nothing is left.
+    会转小写、丢掉其他字符、去掉空段（``"a||b|"`` 变成 ``"a|b"``）并去重；
+    什么都不剩时返回空串，由上层当作“没填”处理。
     """
     lowered = (raw or "").lower()
     cleaned = "".join(
@@ -93,12 +95,9 @@ def sanitize_keywords(raw: str) -> str:
     return "|".join(unique)
 
 
-DEFAULT_GROUP_NAME = "默认分组"
-
-
 @dataclass(frozen=True)
 class FieldError:
-    """Points at the first invalid field of a given operation."""
+    """指出某条操作里第一个不合法的字段。"""
 
     group: int
     index: int
@@ -106,7 +105,7 @@ class FieldError:
 
     @property
     def label(self) -> str:
-        return FIELD_LABELS.get(self.field, self.field)
+        return field_label(self.field)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -119,13 +118,12 @@ class FieldError:
 
 @dataclass
 class OperationGroup:
-    """A named, switchable bucket of operations.
+    """有名字、可整体开关的操作集合。
 
-    Group order defines the order the launcher lists matches in; a disabled
-    group is skipped entirely at load time.
+    分组的顺序决定启动器里结果的顺序；关闭的分组在加载时整组跳过。
     """
 
-    name: str = DEFAULT_GROUP_NAME
+    name: str = ""
     enabled: bool = True
     operations: list[Operation] = field(default_factory=list)
 
@@ -138,7 +136,7 @@ class OperationGroup:
             if isinstance(item, dict)
         ]
         return cls(
-            name=str(data.get("name") or DEFAULT_GROUP_NAME),
+            name=str(data.get("name") or ""),
             enabled=bool(data.get("enabled", True)),
             operations=operations,
         )
@@ -151,7 +149,8 @@ class OperationGroup:
         }
 
     def normalize(self) -> None:
-        self.name = (self.name or "").strip() or DEFAULT_GROUP_NAME
+        """写盘前统一整理：名字去空格，操作各自整理。"""
+        self.name = (self.name or "").strip()
         for operation in self.operations:
             operation.normalize()
 
@@ -162,17 +161,16 @@ class Operation:
     type: str = OperationType.FILE
     arguments: dict[str, Any] = field(default_factory=lambda: default_arguments(OperationType.FILE))
     keywords: str = ""
-    #: Only used to keep list selection stable while dragging; never serialized.
+    #: 仅用于拖拽时保持选中稳定，永远不写进配置文件。
     uid: str = field(default_factory=lambda: uuid.uuid4().hex, compare=False, repr=False)
 
-    # -- construction -----------------------------------------------------
+    # -- 构造 -------------------------------------------------------------
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Operation":
         op_type = str(data.get("type") or OperationType.FILE)
         raw_args = data.get("arguments")
         arguments = dict(raw_args) if isinstance(raw_args, dict) else {}
-        # Fill in anything the file is missing so the rest of the app can rely
-        # on the keys existing, while keeping unknown keys untouched.
+        # 补齐文件里缺的键，让下游可以放心取值；未知的键原样保留。
         for key, value in default_arguments(op_type).items():
             arguments.setdefault(key, value)
         return cls(
@@ -198,12 +196,12 @@ class Operation:
             keywords=self.keywords,
         )
 
-    # -- behaviour --------------------------------------------------------
+    # -- 行为 -------------------------------------------------------------
     def keyword_list(self) -> list[str]:
         return self.keywords.split("|")
 
     def change_type(self, new_type: str) -> None:
-        """Switch type, carrying a path over between ``file`` and ``dir``."""
+        """切换类型，并在文件和文件夹之间搬运已经填好的路径。"""
         if new_type == self.type:
             return
         old_type = self.type
@@ -217,7 +215,7 @@ class Operation:
         self.arguments = new_args
 
     def normalize(self) -> None:
-        """Trim and canonicalise user input right before it is written to disk."""
+        """写盘前把用户输入整理成规范形式。"""
         self.display = (self.display or "").strip()
         self.keywords = sanitize_keywords(self.keywords)
         args = self.arguments
@@ -235,7 +233,7 @@ class Operation:
             args["command"] = str(args.get("command", "")).strip()
 
     def first_invalid_field(self) -> str | None:
-        """Name of the first field that would block saving, if any."""
+        """返回第一个会阻止保存的字段名，全部合法时返回 ``None``。"""
         if not (self.display or "").strip():
             return "display"
         if not (self.type or "").strip():
@@ -263,7 +261,7 @@ def _clamp_depth(value: Any) -> int:
 
 
 def validate_groups(groups: list[OperationGroup]) -> FieldError | None:
-    """First invalid field across every group, in display order."""
+    """按显示顺序找出第一个不合法的字段。"""
     for group_index, group in enumerate(groups):
         for index, operation in enumerate(group.operations):
             field_name = operation.first_invalid_field()
@@ -273,11 +271,10 @@ def validate_groups(groups: list[OperationGroup]) -> FieldError | None:
 
 
 def flatten_groups(groups: list[OperationGroup], enabled_only: bool = True) -> list[Operation]:
-    """Operations in group order, ready for the launcher catalog."""
+    """按分组顺序展平，供启动器的操作目录使用。"""
     operations: list[Operation] = []
     for group in groups:
         if enabled_only and not group.enabled:
             continue
         operations.extend(group.operations)
     return operations
-
