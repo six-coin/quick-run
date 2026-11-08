@@ -1200,6 +1200,11 @@ input.invalid {
   padding: 0 22px;
 }
 
+/* 设置面板：表单可滚动，底部按钮上方需要一段固定的呼吸空间 */
+#modal-settings .modal-actions {
+  padding: 14px 22px 0;
+}
+
 /* ---------- 轻提示 ---------- */
 .toast {
   position: fixed;
