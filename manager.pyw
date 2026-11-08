@@ -1,4 +1,7 @@
-"""Fast Run 操作管理器入口（pywebview）。"""
+"""Fast Run 操作管理器入口。
+
+双击 ``manager.bat`` 时由虚拟环境里的 ``pythonw.exe`` 执行本文件。
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.manager.app import main  # noqa: E402  （必须先完成路径引导）
+
+def _run() -> None:
+    from app.manager.app import main
+
+    main()
+
 
 if __name__ == "__main__":
-    main()
+    _run()

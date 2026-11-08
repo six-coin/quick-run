@@ -127,20 +127,6 @@ class OperationGroup:
     enabled: bool = True
     operations: list[Operation] = field(default_factory=list)
 
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OperationGroup":
-        raw_operations = data.get("operations")
-        operations = [
-            Operation.from_dict(item)
-            for item in (raw_operations if isinstance(raw_operations, list) else [])
-            if isinstance(item, dict)
-        ]
-        return cls(
-            name=str(data.get("name") or ""),
-            enabled=bool(data.get("enabled", True)),
-            operations=operations,
-        )
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,

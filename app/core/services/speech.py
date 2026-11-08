@@ -37,6 +37,6 @@ class BaiduSpeech:
     def _create_player(self, url: str) -> Any:
         if self._player_factory is not None:
             return self._player_factory(url)
-        import vlc  # noqa: PLC0415 - 有意延迟导入
+        import vlc  # 有意延迟导入
 
         return vlc.MediaPlayer(url)

@@ -1,8 +1,8 @@
 """翻译 / 查词 / 计算用的后台任务执行器。
 
 每个结果都带一个“代次”编号。查询一变（或窗口收起）代次就加一，于是上一次
-查询迟到的结果会被直接丢掉，而不会覆盖当前列表。旧实现用毫秒时间戳匹配结果，
-既可能撞号，也分不清“过期”和“当前”。
+查询迟到的结果会被直接丢掉，而不会覆盖当前列表——结果和查询一一对应，
+不会出现张冠李戴。
 
 QRunnable 在报告完成之前一直保留引用，否则 Qt 还在跑的时候，PySide 可能已经
 把 Python 包装对象回收了。
@@ -35,7 +35,7 @@ class _Task(QRunnable):
     def run(self) -> None:
         try:
             result = self._function()
-        except Exception as error:  # noqa: BLE001 - 异常会转交界面线程显示
+        except Exception as error:  # 异常会转交界面线程显示
             logger.debug("后台任务失败 {}：{}", self.key, error)
             self._signals.done.emit(self.key, self.generation, False, error)
         else:

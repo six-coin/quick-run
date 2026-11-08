@@ -1,11 +1,9 @@
-"""Regression tests for the stray ``logs/`` folders bug.
+"""工作目录不变的回归测试。
 
-The old implementation changed the process working directory while opening a
-file, so relative log paths landed next to the opened file. These tests pin the
-two invariants that fix it:
+两条不变量：
 
-1. opening anything never changes ``Path.cwd()``;
-2. the target directory is passed explicitly to the child process.
+1. 打开任何东西都不会改变 ``Path.cwd()``；
+2. 目标目录以参数形式显式传给子进程。
 """
 
 from __future__ import annotations

@@ -32,7 +32,7 @@ def resolve_user_path(raw: str) -> Path:
     """把配置里写下的路径解析成绝对路径。
 
     相对路径（例如 ``custom\\foo.py``）以程序目录为基准，而不是进程的当前
-    工作目录——旧版本正是因为用了当前目录，才会在磁盘各处生成 ``logs`` 文件夹。
+    工作目录。这样无论从哪个目录启动程序，配置里写的路径都指向同一个位置。
     """
     text = (raw or "").strip()
     if len(text) >= 2 and text[0] == text[-1] and text[0] in ("'", '"'):

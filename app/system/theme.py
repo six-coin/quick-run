@@ -6,11 +6,6 @@
 
 from __future__ import annotations
 
-try:  # 项目只在 Windows 上运行，这里仍保留导入兜底，方便在别的平台跑测试
-    import winreg
-except ImportError:  # pragma: no cover
-    winreg = None  # type: ignore[assignment]
-
 _PERSONALIZE = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
 _LIGHT_KEY = "AppsUseLightTheme"
 
@@ -26,9 +21,9 @@ def normalize_theme(value: object) -> str:
 
 def system_theme() -> str:
     """返回 ``"dark"`` 或 ``"light"``，读取失败时按浅色处理。"""
-    if winreg is None:
-        return "light"
     try:
+        import winreg
+
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _PERSONALIZE) as key:
             value, _ = winreg.QueryValueEx(key, _LIGHT_KEY)
         return "light" if int(value) else "dark"

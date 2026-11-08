@@ -59,9 +59,20 @@
       <button type="button" id="filter-clear" class="search-clear hidden" data-i18n-title="manager.search_clear" data-i18n-aria="manager.search_clear">×</button>
     </div>
 
-    <div id="list" class="list" role="tree" aria-label="groups"></div>
+    <div class="list-wrap">
+      <div id="list" class="list" role="tree" aria-label="groups"></div>
+      <button type="button" id="btn-add-group-end" class="list-add" data-i18n-title="manager.add_group_end" data-i18n-aria="manager.add_group_end">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 3.5v9M3.5 8h9"></path>
+        </svg>
+      </button>
+    </div>
 
     <footer class="sidebar-foot">
+      <div class="foot-row">
+        <button type="button" id="btn-expand-all" class="btn ghost" data-i18n="manager.expand_all">展开全部</button>
+        <button type="button" id="btn-collapse-all" class="btn ghost" data-i18n="manager.collapse_all">折叠全部</button>
+      </div>
       <div class="foot-row">
         <button type="button" id="btn-add-group" class="btn ghost" data-i18n="manager.new_group">新建分组</button>
         <button type="button" id="btn-help" class="btn ghost" data-i18n="manager.help">帮助</button>

@@ -1,8 +1,7 @@
-"""Static guards that keep the architecture from rotting.
+"""用静态检查守住架构约定。
 
-Cheap to run, catches the regressions that would hurt most: a stray ``os.chdir``
-(the stray ``logs/`` bug), a UI dependency leaking into the core, and any file
-that no longer parses.
+跑起来很便宜，但能挡住最伤人的几类退化：冒出来的 ``os.chdir``、界面依赖渗进
+核心层、以及任何无法解析的文件。
 """
 
 from __future__ import annotations

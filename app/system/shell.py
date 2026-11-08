@@ -1,16 +1,10 @@
 """安全地启动文件、文件夹、网址和命令，全程不碰 cwd。
 
-这个模块的存在是为修掉旧版本的一个真实缺陷：
-
-    os.chdir(file_cwd)          # 改的是整个进程，还跑在线程池里
-    os.startfile(file_path)     # 异步，子进程继承当前 cwd
-    os.chdir(original_cwd)
-
-cwd 被切走的那段时间里，任何别的线程写相对路径日志，都会在被打开的文件旁边
-建出一个 ``logs/`` 文件夹；两次并发打开还可能把 cwd 永久留在错误的位置。
-
 这里的规矩很简单：**绝不调用 os.chdir**。子进程的工作目录一律用参数表达
 （``cwd=`` / ``os.startfile(..., cwd=...)``），进程自己的 cwd 从头到尾不动。
+
+这样做有两个直接好处：任何线程写日志、写配置都落在固定的绝对路径上，不会
+跟着被打开的文件跑；并发启动多个目标时也不会互相干扰。
 """
 
 from __future__ import annotations
@@ -39,7 +33,7 @@ class WindowsOpener:
             return
         try:
             if no_window:
-                # shell=True 保留旧行为：让 shell 去解析 .py/.bat 的文件关联。
+                # shell=True 让 shell 去解析 .py/.bat 的文件关联。
                 # 工作目录用参数传，而不是先 os.chdir 再启动。
                 subprocess.Popen(
                     [str(target)],
@@ -49,7 +43,7 @@ class WindowsOpener:
                     creationflags=CREATE_NO_WINDOW,
                 )
             else:
-                self._startfile(target, cwd)
+                os.startfile(str(target), cwd=str(cwd))
         except OSError as error:
             logger.warning("打开文件 {} 时出错：{}", target, error)
 
@@ -59,7 +53,7 @@ class WindowsOpener:
             logger.warning("打开路径 {} 时出错：路径不存在或不是路径", target)
             return
         try:
-            os.startfile(str(target))  # noqa: S606 - 这里就是要交给 shell 打开
+            os.startfile(str(target))  # 这里就是要交给 shell 打开
         except OSError as error:
             logger.warning("打开路径 {} 时出错：{}", target, error)
 
@@ -94,15 +88,6 @@ class WindowsOpener:
             logger.warning("未知的调试功能：{}", function)
 
     # -- 内部实现 ---------------------------------------------------------
-    @staticmethod
-    def _startfile(target: Path, cwd: Path) -> None:
-        try:
-            os.startfile(str(target), cwd=str(cwd))
-        except TypeError:
-            # Python 3.10 以前的 startfile 没有 ``cwd`` 参数；反正本进程的 cwd
-            # 就是程序目录，相对路径也能解析对。
-            os.startfile(str(target))
-
     def _restart(self) -> None:
         interpreter = self._pythonw()
         try:

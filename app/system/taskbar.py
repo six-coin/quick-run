@@ -25,7 +25,7 @@ class _Rect(ctypes.Structure):
 
 
 def is_fullscreen_foreground() -> bool:
-    """沿用旧版的判断方式：前台窗口正好铺满整个屏幕。"""
+    """判断前台窗口是否正好铺满整个屏幕。"""
     try:
         hwnd = _user32.GetForegroundWindow()
         if not hwnd:

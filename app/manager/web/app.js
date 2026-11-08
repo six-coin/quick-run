@@ -289,7 +289,6 @@
       empty.className = 'list-empty';
       empty.textContent = state.filter ? T('manager.no_match') : T('manager.no_operations');
       list.appendChild(empty);
-      list.appendChild(renderAddGroupRow());
       return;
     }
 
@@ -402,33 +401,22 @@
       list.appendChild(section);
     });
 
-    list.appendChild(renderAddGroupRow());
     finishListRender(activeId);
   }
 
-  /** 列表末尾的加号，和“新建分组”是同一件事。 */
-  function renderAddGroupRow() {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.id = 'btn-add-group-end';
-    button.className = 'list-add';
-    button.dataset.focusId = 'addgroup';
-    // 和分组、操作一样纳入方向键序列，但不额外占 Tab 停靠点。
-    button.dataset.node = 'add';
-    button.tabIndex = -1;
-    button.setAttribute('role', 'treeitem');
-    button.setAttribute('aria-level', '1');
-    button.title = T('manager.add_group_end');
-    button.setAttribute('aria-label', T('manager.add_group_end'));
-    button.appendChild(svgIcon('M8 3.5v9M3.5 8h9'));
-    button.addEventListener('click', function () {
-      addGroup();
-    });
-    return button;
-  }
-
+  /**
+   * 方向键序列里只放“看得见”的节点。
+   *
+   * 折叠的分组会把它的操作 display:none 掉；如果还把这些隐藏节点算进来，
+   * roving tabindex 的 0 号停靠点就可能落在一个不可见的元素上——那样整张
+   * 列表就一个 Tab 停靠点都没有了（全折叠时正是这个表现）。
+   */
   function listNodes() {
-    return Array.prototype.slice.call($('list').querySelectorAll('[data-node]'));
+    return Array.prototype.slice
+      .call($('list').querySelectorAll('[data-node]'))
+      .filter(function (node) {
+        return node.offsetParent !== null;
+      });
   }
 
   function focusNode(node) {
@@ -448,21 +436,31 @@
     const nodes = listNodes();
     if (!nodes.length) return;
 
+    const findNode = function (key) {
+      return (
+        nodes.filter(function (node) {
+          return node.dataset.focusId === key;
+        })[0] || null
+      );
+    };
+
     let target = null;
     if (activeId) {
       const previous = list.querySelector('[data-focus-id="' + activeId + '"]');
-      if (previous && previous.dataset.node) target = previous;
+      // 已经被折叠隐藏的节点不能当停靠点，否则整张列表就没人可聚焦了。
+      if (previous && previous.dataset.node && previous.offsetParent !== null) {
+        target = previous;
+      }
     }
     if (!target) {
       const sel = selection();
-      const key =
-        sel.kind === 'operation'
-          ? 'op:' + sel.group + ':' + sel.index
-          : 'head:' + sel.group;
-      target =
-        nodes.filter(function (node) {
-          return node.dataset.focusId === key;
-        })[0] || nodes[0];
+      if (sel.kind === 'operation') {
+        // 选中的操作可能被折叠起来，那就退到它所属的分组标题。
+        target = findNode('op:' + sel.group + ':' + sel.index) || findNode('head:' + sel.group);
+      } else {
+        target = findNode('head:' + sel.group);
+      }
+      target = target || nodes[0];
     }
     nodes.forEach(function (node) {
       node.tabIndex = node === target ? 0 : -1;
@@ -470,7 +468,9 @@
 
     if (!activeId) return;
     const element = list.querySelector('[data-focus-id="' + activeId + '"]');
-    if (element && element !== document.activeElement) element.focus();
+    if (element && element.offsetParent !== null && element !== document.activeElement) {
+      element.focus();
+    }
   }
 
   function renderOperation(operation, sel) {
@@ -776,6 +776,22 @@
     if (head) head.setAttribute('aria-expanded', String(!collapsed));
   }
 
+  /** 展开全部分组。 */
+  function expandAll() {
+    if (!state.data) return;
+    state.collapsed.clear();
+    renderGroups();
+  }
+
+  /** 折叠全部分组。选中项留在右侧，列表的 Tab 停靠点退到对应分组标题。 */
+  function collapseAll() {
+    if (!state.data) return;
+    state.data.groups.forEach(function (group) {
+      state.collapsed.add(group.name);
+    });
+    renderGroups();
+  }
+
   function setGroupExpanded(group, expand) {
     const section = document.querySelector('.group[data-group="' + group + '"]');
     if (!section) return;
@@ -790,58 +806,31 @@
 
   function activateNode(node) {
     if (!node || !state.data) return;
-    if (node.dataset.node === 'add') {
-      addGroup();
+
+    if (node.dataset.node === 'group') {
+      const index = Number(node.dataset.group);
+      const section = document.querySelector('.group[data-group="' + index + '"]');
+      // 折叠状态下按空格 / 回车：既刷新右侧，也把这一组展开。
+      if (section && section.classList.contains('collapsed')) {
+        toggleCollapse(groupName(index), section);
+      }
+      call('select_group', index).then(apply);
       return;
     }
-    if (node.dataset.node === 'group') {
-      call('select_group', Number(node.dataset.group)).then(apply);
-    } else {
-      call('select_operation', Number(node.dataset.group), Number(node.dataset.index)).then(
-        apply
-      );
-    }
-  }
 
-  /** 一行里的可聚焦控件：标题本身、加号、开关。 */
-  function rowControls(head) {
-    return [
-      head,
-      head.querySelector('.group-add'),
-      head.querySelector('.switch input'),
-    ].filter(Boolean);
+    call('select_operation', Number(node.dataset.group), Number(node.dataset.index)).then(
+      apply
+    );
   }
 
   /**
    * 侧栏的方向键导航。
    *
-   * 整个列表只占一个 Tab 停靠点：↑↓ 在分组与操作之间移动，←→ 处理折叠，
-   * 已经展开时按 → 进入该行的加号与开关，按 ← 再退回标题。
-   * 加号和开关因此不需要各自占一个 Tab 停靠点，列表才真正是一个整体。
+   * 可选中的只有三种：展开的分组、折叠的分组、展开分组里的操作。
+   * 加号和开关不参与——它们交给鼠标，键盘用户选中分组后在右侧面板里改，
+   * 侧栏的操作因此简化成“选一个东西”这一件事。
    */
   function onListKeydown(event) {
-    const head = event.target.closest('.group-head');
-
-    // 焦点落在行内控件（加号 / 开关）上：左右在行内移动，上下跳到相邻行。
-    if (head && event.target !== head) {
-      const items = rowControls(head);
-      const position = items.indexOf(event.target);
-
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        if (position > 0) items[position - 1].focus();
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        if (position < items.length - 1) items[position + 1].focus();
-      } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        event.preventDefault();
-        const all = listNodes();
-        const index = all.indexOf(head);
-        focusNode(all[index + (event.key === 'ArrowDown' ? 1 : -1)]);
-      }
-      return;
-    }
-
     const node = event.target.closest('[data-node]');
     if (!node || event.target !== node) return;
 
@@ -868,23 +857,13 @@
       case 'ArrowRight':
         event.preventDefault();
         if (node.dataset.node === 'group') {
-          const group = Number(node.dataset.group);
-          const section = document.querySelector('.group[data-group="' + group + '"]');
-          if (section && section.classList.contains('collapsed')) {
-            setGroupExpanded(group, true);
-          } else {
-            // 已经展开，再按一次就进入这一行的加号。
-            const add = node.querySelector('.group-add');
-            if (add) add.focus();
-          }
+          setGroupExpanded(Number(node.dataset.group), true);
         }
         break;
       case 'ArrowLeft':
         event.preventDefault();
         if (node.dataset.node === 'group') {
           setGroupExpanded(Number(node.dataset.group), false);
-        } else if (node.dataset.node === 'add') {
-          focusNode(nodes[position - 1]);
         } else {
           focusNode(
             document.querySelector(
@@ -1239,6 +1218,11 @@
     $('btn-add-group').addEventListener('click', function () {
       addGroup();
     });
+    $('btn-add-group-end').addEventListener('click', function () {
+      addGroup();
+    });
+    $('btn-expand-all').addEventListener('click', expandAll);
+    $('btn-collapse-all').addEventListener('click', collapseAll);
     $('btn-group-add-op').addEventListener('click', function () {
       const group = currentGroup();
       if (group) addOperation(group.index);

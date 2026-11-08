@@ -31,7 +31,7 @@ def confirm_unsaved() -> str:
             i18n.t("manager.title"),
             _MB_YESNOCANCEL | _MB_ICONWARNING | _MB_SETFOREGROUND | _MB_TOPMOST,
         )
-    except Exception as error:  # noqa: BLE001 - 对话框出错也不能卡住关闭流程
+    except Exception as error:  # 对话框出错也不能卡住关闭流程
         logger.warning("显示未保存提示失败：{}", error)
         return "cancel"
 

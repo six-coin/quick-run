@@ -42,7 +42,7 @@ def main() -> None:
         _run()
     except SystemExit:
         raise
-    except Exception as error:  # noqa: BLE001 - 最后一道防线，直接弹窗
+    except Exception as error:  # 最后一道防线，直接弹窗
         logger.exception("程序启动失败")
         logging_setup.fatal(i18n.t("fatal.startup", error=error))
 

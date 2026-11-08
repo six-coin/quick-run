@@ -327,7 +327,7 @@ class ManagerApi:
 
         try:
             settings_module.save_groups(self._groups)
-        except Exception as failure:  # noqa: BLE001 - 需要把原因显示给用户
+        except Exception as failure:  # 需要把原因显示给用户
             logger.exception("保存操作列表失败")
             return self._state(
                 ok=False, message=i18n.t("manager.save_failed", error=failure)
@@ -379,7 +379,7 @@ class ManagerApi:
     def _persist_config(self) -> None:
         try:
             settings_module.save_app_config(self._config)
-        except Exception as error:  # noqa: BLE001 - 写失败不该让界面崩掉
+        except Exception as error:  # 写失败不该让界面崩掉
             logger.exception("保存应用配置失败：{}", error)
 
     def _push_close_prompt(self) -> None:
@@ -391,7 +391,7 @@ class ManagerApi:
                         "window.fastrun ? window.fastrun.askUnsaved() : false"
                     )
                 )
-        except Exception as error:  # noqa: BLE001 - 兜底走系统对话框
+        except Exception as error:  # 兜底走系统对话框
             logger.warning("页面内无法显示未保存提示：{}", error)
         finally:
             self._close_prompting = False
@@ -412,7 +412,7 @@ class ManagerApi:
             return ""
         try:
             result = self._window.create_file_dialog(dialog_type, allow_multiple=False)
-        except Exception as error:  # noqa: BLE001 - 选择框失败不影响手输路径
+        except Exception as error:  # 选择框失败不影响手输路径
             logger.warning("打开文件选择框失败：{}", error)
             return ""
         if not result:

@@ -241,29 +241,24 @@ def _parse_groups(data: Any, target: Path) -> list[OperationGroup]:
     return groups
 
 
-def _parse_operations(items: list[Any], group_name: str | None = None) -> list[Operation]:
+def _parse_operations(items: list[Any], group_name: str) -> list[Operation]:
+    """解析一个分组下的操作数组，出错时把分组名带进提示里。"""
     operations: list[Operation] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
-            if group_name:
-                raise ConfigError(
-                    i18n.t("config.op_not_object_in", name=group_name, index=index + 1)
-                )
-            raise ConfigError(i18n.t("config.op_not_object", index=index + 1))
+            raise ConfigError(
+                i18n.t("config.op_not_object_in", name=group_name, index=index + 1)
+            )
         missing = [key for key in _OPERATION_KEYS if key not in item]
         if missing:
             fields = ("、" if i18n.language() == "zh" else ", ").join(missing)
-            if group_name:
-                raise ConfigError(
-                    i18n.t(
-                        "config.op_missing_in",
-                        name=group_name,
-                        index=index + 1,
-                        fields=fields,
-                    )
-                )
             raise ConfigError(
-                i18n.t("config.op_missing", index=index + 1, fields=fields)
+                i18n.t(
+                    "config.op_missing_in",
+                    name=group_name,
+                    index=index + 1,
+                    fields=fields,
+                )
             )
         operations.append(Operation.from_dict(item))
     return operations

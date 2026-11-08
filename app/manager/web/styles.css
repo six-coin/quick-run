@@ -322,6 +322,13 @@ input[type="password"]:focus {
 }
 
 /* 分组列表 */
+.list-wrap {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 6px;
+  min-height: 0;
+}
+
 .list {
   min-height: 0;
   padding: 0 2px 0 0;
@@ -592,7 +599,6 @@ input[type="password"]:focus {
   justify-content: center;
   width: 100%;
   height: 30px;
-  margin-top: 6px;
   padding: 0;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius);

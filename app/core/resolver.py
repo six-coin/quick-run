@@ -1,7 +1,6 @@
 """把输入框里的文字变成结果行。
 
-这里其实就是旧版 ``SearchWindow.filter_operations`` 里那套状态机，只是被抽成了
-纯函数式的模块：给一段查询，返回要显示的行和需要异步发起的请求。优先级没变：
+纯函数式的模块：给一段查询，返回要显示的行和需要异步发起的请求。优先级：
 
     1. 空查询              -> 什么都不显示
     2. 以 ` 结尾           -> 只看内置功能（搜索 / 计算 / 查词 / 翻译）
@@ -140,7 +139,7 @@ class QueryResolver:
     def _explore_target(self, head: str) -> Operation | None:
         """第一个空格前的词指向的文件夹操作。
 
-        ``play#2`` 显式指定第 2 个匹配项；不带序号时沿用前缀匹配的老规则。
+        ``play#2`` 显式指定第 2 个匹配项；不带序号时用前缀匹配。
         """
         indexed = parse_index(head)
         if indexed is None:

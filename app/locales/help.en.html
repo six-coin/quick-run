@@ -34,10 +34,12 @@
 <h3>5. Keyboard</h3>
 <ul>
     <li>The sidebar is one single tab stop: <code>Tab</code> enters it once, and the next <code>Tab</code> leaves it.</li>
-    <li><code>↑</code> <code>↓</code> move between groups and operations; <code>Home</code> / <code>End</code> jump to the ends (the last row creates a group).</li>
-    <li><code>Enter</code> or <code>Space</code> selects the focused item.</li>
-    <li>On a group title: <code>←</code> collapses, <code>→</code> expands; once expanded, <code>→</code> steps into that row’s “+”, then into the switch, and <code>←</code> steps back out.</li>
-    <li>On an operation: <code>←</code> jumps back to its group title.</li>
+    <li>Only three things are selectable: expanded groups, collapsed groups, and operations inside expanded groups.</li>
+    <li><code>↑</code> <code>↓</code> move between them; <code>Home</code> / <code>End</code> jump to the ends.</li>
+    <li><code>Enter</code> or <code>Space</code> selects the focused item; selecting a collapsed group also expands it.</li>
+    <li><code>←</code> collapses a group or jumps from an operation back to its group; <code>→</code> expands a group.</li>
+    <li>“Expand all / Collapse all” at the bottom changes every group at once.</li>
+    <li>The “+” and the enable switch are mouse-only; select the group and use the panel on the right instead.</li>
     <li>While a dialog is open, <code>Tab</code> cycles inside it and <code>Esc</code> closes it.</li>
     <li>Global shortcuts: <code>Ctrl + S</code> saves, <code>Ctrl + F</code> focuses the search box.</li>
 </ul>

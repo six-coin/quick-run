@@ -9,7 +9,7 @@ from app.models import Operation, OperationType
 class Catalog:
     """已配置操作之上的只读视图。
 
-    匹配规则沿用旧的 ``filter_operations``：
+    匹配规则：
 
     * ``dir`` 类型会把关键词和查询都压成 ``[a-z0-9]`` 再比；
     * 其他类型直接用原始关键词做 ``startswith``；

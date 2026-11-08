@@ -1,8 +1,8 @@
 """基于 loguru 的日志初始化。
 
-为什么换成 loguru：线程 / 进程安全的队列、轮转与保留策略都是内置的，
-而且不涉及相对路径。日志文件路径永远是绝对路径（``app.paths.LOG_DIR``），
-这样工作目录再怎么乱，程序也不会在磁盘各处散落 ``logs/`` 文件夹。
+选它是因为线程 / 进程安全的队列、轮转与保留策略都是内置的，而且不涉及相对
+路径。日志文件路径永远是绝对路径（``app.paths.LOG_DIR``），工作目录再怎么变，
+日志都落在同一个地方。
 """
 
 from __future__ import annotations
@@ -42,6 +42,8 @@ def setup(name: str) -> Path:
         enqueue=True,
         backtrace=True,
         diagnose=False,
+        rotation="5 MB",
+        retention="14 days",
         format=_LOG_FORMAT,
     )
 
