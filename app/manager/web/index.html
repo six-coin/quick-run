@@ -42,9 +42,9 @@
           </svg>
         </button>
         <button type="button" id="btn-settings" class="icon-btn" data-i18n-title="manager.settings" data-i18n-aria="manager.settings">
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="8" cy="8" r="2.2"></circle>
-            <path d="M8 1.4v1.7M8 12.9v1.7M1.4 8h1.7M12.9 8h1.7M3.3 3.3l1.2 1.2M11.5 11.5l1.2 1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2"></path>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
           </svg>
         </button>
       </div>
@@ -308,11 +308,37 @@
         </div>
         <div class="field">
           <label for="set-secret" data-i18n="settings.translate_key">百度翻译密钥</label>
-          <input id="set-secret" type="text" autocomplete="off" spellcheck="false">
+          <div class="secret" id="wrap-secret">
+            <input id="set-secret" type="password" autocomplete="off" spellcheck="false">
+            <button type="button" class="secret-toggle" data-target="set-secret" data-i18n-title="settings.show_secret" data-i18n-aria="settings.show_secret">
+              <svg class="icon-eye" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M1.5 8S3.9 3.8 8 3.8 14.5 8 14.5 8 12.1 12.2 8 12.2 1.5 8 1.5 8z"></path>
+                <circle cx="8" cy="8" r="1.9"></circle>
+              </svg>
+              <svg class="icon-eye-off" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M6.3 3.9A6.6 6.6 0 0 1 8 3.8c4.1 0 6.5 4.2 6.5 4.2a11 11 0 0 1-2.2 2.7"></path>
+                <path d="M4.2 4.7A10.8 10.8 0 0 0 1.5 8S3.9 12.2 8 12.2c1 0 1.9-.2 2.7-.6"></path>
+                <path d="M2.5 2.5l11 11"></path>
+              </svg>
+            </button>
+          </div>
         </div>
         <div class="field">
           <label for="set-ai" data-i18n="settings.ai_key">AI 查词 API Key</label>
-          <input id="set-ai" type="text" autocomplete="off" spellcheck="false">
+          <div class="secret" id="wrap-ai">
+            <input id="set-ai" type="password" autocomplete="off" spellcheck="false">
+            <button type="button" class="secret-toggle" data-target="set-ai" data-i18n-title="settings.show_secret" data-i18n-aria="settings.show_secret">
+              <svg class="icon-eye" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M1.5 8S3.9 3.8 8 3.8 14.5 8 14.5 8 12.1 12.2 8 12.2 1.5 8 1.5 8z"></path>
+                <circle cx="8" cy="8" r="1.9"></circle>
+              </svg>
+              <svg class="icon-eye-off" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M6.3 3.9A6.6 6.6 0 0 1 8 3.8c4.1 0 6.5 4.2 6.5 4.2a11 11 0 0 1-2.2 2.7"></path>
+                <path d="M4.2 4.7A10.8 10.8 0 0 0 1.5 8S3.9 12.2 8 12.2c1 0 1.9-.2 2.7-.6"></path>
+                <path d="M2.5 2.5l11 11"></path>
+              </svg>
+            </button>
+          </div>
         </div>
         <p class="hint" data-i18n="settings.services_hint"></p>
       </section>

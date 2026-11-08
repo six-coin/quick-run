@@ -230,13 +230,14 @@ body {
   flex: none;
 }
 
-#btn-theme svg {
+#btn-theme svg,
+#btn-settings svg {
   display: block;
   width: 16px;
   height: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.4;
+  stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -274,7 +275,8 @@ body {
   pointer-events: none;
 }
 
-.search input[type="text"] {
+.search input[type="text"],
+input[type="password"] {
   width: 100%;
   height: 38px;
   padding: 0 32px 0 34px;
@@ -290,7 +292,8 @@ body {
   color: var(--muted);
 }
 
-.search input[type="text"]:focus {
+.search input[type="text"]:focus,
+input[type="password"]:focus {
   outline: none;
   background: var(--panel);
   border-color: var(--blue);
@@ -614,6 +617,11 @@ body {
   color: var(--blue-text);
 }
 
+/* 焦点环画在虚线框内侧，否则会顶到侧栏外面去。 */
+.list-add:focus-visible {
+  outline-offset: -2px;
+}
+
 /* 底部按钮 */
 .sidebar-foot {
   display: flex;
@@ -772,6 +780,7 @@ kbd {
 .chevron-btn:focus-visible,
 .picker-item:focus-visible,
 .seg-item:focus-visible,
+.secret-toggle:focus-visible,
 .select-option:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
@@ -958,7 +967,8 @@ input[type="text"] {
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
-input[type="text"]::placeholder {
+input[type="text"]::placeholder,
+input[type="password"]::placeholder {
   color: var(--placeholder);
 }
 
@@ -1515,6 +1525,63 @@ input.invalid {
   background: var(--panel);
   color: var(--text-strong);
   box-shadow: 0 1px 3px var(--shadow);
+}
+
+/* 密钥输入框：默认隐藏内容，右侧提供显示 / 隐藏切换。 */
+.secret {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.secret input[type="text"],
+.secret input[type="password"] {
+  padding-right: 38px;
+}
+
+.secret-toggle {
+  position: absolute;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.secret-toggle:hover {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+.secret-toggle svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.secret-toggle .icon-eye-off {
+  display: none;
+}
+
+.secret.revealed .icon-eye {
+  display: none;
+}
+
+.secret.revealed .icon-eye-off {
+  display: block;
 }
 
 /* ---------- 滚动条 ---------- */

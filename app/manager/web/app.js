@@ -91,6 +91,7 @@
 
     renderDepthHint();
     renderSettingsHints();
+    syncSecretToggles();
   }
 
   function renderDepthHint() {
@@ -345,6 +346,8 @@
       add.type = 'button';
       add.className = 'group-add';
       add.dataset.focusId = 'add:' + group.index;
+      // 不占 Tab 停靠点：用左右方向键从分组标题走进来。
+      add.tabIndex = -1;
       add.title = T('manager.add_to_group', { name: group.name });
       add.setAttribute('aria-label', add.title);
       add.appendChild(svgIcon('M8 3.5v9M3.5 8h9'));
@@ -361,6 +364,7 @@
       checkbox.type = 'checkbox';
       checkbox.checked = group.enabled;
       checkbox.dataset.focusId = 'toggle:' + group.index;
+      checkbox.tabIndex = -1;
       checkbox.setAttribute('aria-label', T('manager.enable_group', { name: group.name }));
       checkbox.addEventListener('click', function (event) {
         event.stopPropagation();
@@ -409,6 +413,11 @@
     button.id = 'btn-add-group-end';
     button.className = 'list-add';
     button.dataset.focusId = 'addgroup';
+    // 和分组、操作一样纳入方向键序列，但不额外占 Tab 停靠点。
+    button.dataset.node = 'add';
+    button.tabIndex = -1;
+    button.setAttribute('role', 'treeitem');
+    button.setAttribute('aria-level', '1');
     button.title = T('manager.add_group_end');
     button.setAttribute('aria-label', T('manager.add_group_end'));
     button.appendChild(svgIcon('M8 3.5v9M3.5 8h9'));
@@ -781,6 +790,10 @@
 
   function activateNode(node) {
     if (!node || !state.data) return;
+    if (node.dataset.node === 'add') {
+      addGroup();
+      return;
+    }
     if (node.dataset.node === 'group') {
       call('select_group', Number(node.dataset.group)).then(apply);
     } else {
@@ -790,11 +803,46 @@
     }
   }
 
-  /** 侧栏的方向键导航：整个列表只占一个 Tab 停靠点。 */
+  /** 一行里的可聚焦控件：标题本身、加号、开关。 */
+  function rowControls(head) {
+    return [
+      head,
+      head.querySelector('.group-add'),
+      head.querySelector('.switch input'),
+    ].filter(Boolean);
+  }
+
+  /**
+   * 侧栏的方向键导航。
+   *
+   * 整个列表只占一个 Tab 停靠点：↑↓ 在分组与操作之间移动，←→ 处理折叠，
+   * 已经展开时按 → 进入该行的加号与开关，按 ← 再退回标题。
+   * 加号和开关因此不需要各自占一个 Tab 停靠点，列表才真正是一个整体。
+   */
   function onListKeydown(event) {
+    const head = event.target.closest('.group-head');
+
+    // 焦点落在行内控件（加号 / 开关）上：左右在行内移动，上下跳到相邻行。
+    if (head && event.target !== head) {
+      const items = rowControls(head);
+      const position = items.indexOf(event.target);
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        if (position > 0) items[position - 1].focus();
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        if (position < items.length - 1) items[position + 1].focus();
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        const all = listNodes();
+        const index = all.indexOf(head);
+        focusNode(all[index + (event.key === 'ArrowDown' ? 1 : -1)]);
+      }
+      return;
+    }
+
     const node = event.target.closest('[data-node]');
-    // 只有列表项本身获得焦点时才处理。加号、开关是独立控件，
-    // 它们自己的 Enter / 空格不能被这里吞掉。
     if (!node || event.target !== node) return;
 
     const nodes = listNodes();
@@ -819,12 +867,24 @@
         break;
       case 'ArrowRight':
         event.preventDefault();
-        if (node.dataset.node === 'group') setGroupExpanded(Number(node.dataset.group), true);
+        if (node.dataset.node === 'group') {
+          const group = Number(node.dataset.group);
+          const section = document.querySelector('.group[data-group="' + group + '"]');
+          if (section && section.classList.contains('collapsed')) {
+            setGroupExpanded(group, true);
+          } else {
+            // 已经展开，再按一次就进入这一行的加号。
+            const add = node.querySelector('.group-add');
+            if (add) add.focus();
+          }
+        }
         break;
       case 'ArrowLeft':
         event.preventDefault();
         if (node.dataset.node === 'group') {
           setGroupExpanded(Number(node.dataset.group), false);
+        } else if (node.dataset.node === 'add') {
+          focusNode(nodes[position - 1]);
         } else {
           focusNode(
             document.querySelector(
@@ -961,8 +1021,29 @@
     const settings = await call('get_settings');
     if (!settings) return;
     state.settings = settings;
+    resetSecrets();
     renderSettings();
     openModal('modal-settings');
+  }
+
+  /** 每次打开设置都把密钥恢复成隐藏状态。 */
+  function resetSecrets() {
+    document.querySelectorAll('.secret').forEach(function (wrap) {
+      const input = wrap.querySelector('input');
+      if (input) input.type = 'password';
+      wrap.classList.remove('revealed');
+    });
+    syncSecretToggles();
+  }
+
+  function syncSecretToggles() {
+    document.querySelectorAll('.secret-toggle').forEach(function (button) {
+      const input = $(button.dataset.target);
+      const revealed = !!input && input.type === 'text';
+      const key = revealed ? 'settings.hide_secret' : 'settings.show_secret';
+      button.title = T(key);
+      button.setAttribute('aria-label', T(key));
+    });
   }
 
   function renderSettings() {
@@ -1258,6 +1339,18 @@
     bindSettingInput('set-appid', 'translate_appid', false);
     bindSettingInput('set-secret', 'translate_secret', false);
     bindSettingInput('set-ai', 'ai_api_key', false);
+
+    document.querySelectorAll('.secret-toggle').forEach(function (button) {
+      button.addEventListener('click', function () {
+        const input = $(button.dataset.target);
+        if (!input) return;
+        const reveal = input.type === 'password';
+        input.type = reveal ? 'text' : 'password';
+        input.parentElement.classList.toggle('revealed', reveal);
+        syncSecretToggles();
+        input.focus();
+      });
+    });
 
     $('btn-save').addEventListener('click', function () {
       save();

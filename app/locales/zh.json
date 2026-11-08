@@ -1,6 +1,5 @@
 {
     "app.name": "Fast Run",
-
     "manager.title": "Fast Run 操作管理器",
     "manager.count": "{total} 项 · {groups} 组",
     "manager.count_filtered": "{shown} / {total} 项",
@@ -69,7 +68,6 @@
     "manager.toggle_off": "启用该分组",
     "manager.add_group_end": "在列表末尾新建分组",
     "manager.list_label": "分组与操作",
-
     "manager.saved": "文件已成功保存",
     "manager.saved_cleaned": "文件已成功保存（已按规则清理 {count} 条匹配字串）",
     "manager.only_one_group": "至少要保留一个分组",
@@ -77,7 +75,6 @@
     "manager.save_failed": "无法写入配置文件：\n{error}",
     "manager.added_disabled": "已添加到「{name}」，但该分组已关闭，不会出现在启动器中",
     "manager.action_failed": "操作失败：{error}",
-
     "settings.title": "设置",
     "settings.language": "语言",
     "settings.appearance": "外观",
@@ -94,7 +91,6 @@
     "settings.ai_key": "AI 查词 API Key",
     "settings.services_hint": "留空即关闭对应功能，修改后重启启动器生效。",
     "settings.done": "完成",
-
     "launcher.placeholder": "快捷运行...",
     "launcher.search": "搜索：{text}",
     "launcher.calculate": "计算：{text}",
@@ -109,20 +105,17 @@
     "launcher.folder": "文件夹：{name}",
     "launcher.file": "文件：{name}",
     "launcher.error": "错误：{message}",
-
     "nav.too_many": "该文件夹内项目过多",
     "nav.empty": "文件夹中没有任何项目",
     "nav.no_match": "没有搜索到指定的项目",
     "nav.bad_index": "未知序号",
     "nav.not_dir": "没有指定的文件夹",
     "nav.depth_limit": "搜索已达深度上限",
-
     "calc.invalid_syntax": "表达式不合法",
     "calc.divide_by_zero": "不能除以零",
     "calc.too_large": "数值过大",
     "calc.too_long": "结果过长",
     "calc.timeout": "计算超时",
-
     "config.not_found": "找不到文件 {path}",
     "config.bad_json": "{name} 不是合法的 JSON：{error}",
     "config.unreadable": "无法读取 {name}：{error}",
@@ -135,28 +128,23 @@
     "config.op_not_object_in": "分组「{name}」的第 {index} 条操作必须是对象",
     "config.op_missing": "第 {index} 条操作缺少字段：{fields}",
     "config.op_missing_in": "分组「{name}」的第 {index} 条操作缺少字段：{fields}",
-
     "default.group": "默认分组",
     "default.manager": "操作管理与帮助",
     "default.program_folder": "打开程序文件夹",
     "default.startup_folder": "打开启动文件夹",
-
     "warn.no_enabled_group": "所有分组都已关闭，启动器只会显示搜索、计算与翻译",
     "warn.translate_off": "实时翻译功能已关闭，因为未配置 appid / secret_key",
     "warn.ai_off": "AI 查词功能已关闭，因为未配置 api_key",
-
     "fatal.operations": "程序无法继续运行，因为无法读取操作列表：\n{error}",
     "fatal.startup": "程序启动失败：\n{error}",
     "fatal.config": "程序无法继续运行，因为无法读取配置文件：\n{error}",
     "fatal.hotkey_timeout": "全局快捷键注册超时，程序无法启动",
     "fatal.hotkey_failed": "全局快捷键 {label} 注册失败（错误码 {code}），可能已被其他程序占用",
-
     "type.file": "打开文件",
     "type.dir": "打开文件夹",
     "type.url": "打开网页",
     "type.cmd": "执行命令",
     "type.debug": "程序调试",
-
     "field.display": "显示名称",
     "field.type": "运行方式",
     "field.keywords": "匹配字串",
@@ -164,14 +152,13 @@
     "field.dir": "文件夹路径",
     "field.url": "网页地址",
     "field.command": "执行命令",
-
     "debug.restart": "重启程序",
     "debug.close": "关闭程序",
-
     "service.translate_failed": "翻译失败：{message}",
     "service.request_failed": "请求异常：{error}",
     "service.definition_failed": "查词失败",
     "service.unknown_error": "未知错误",
-
-    "dialog.unsaved_text": "有未保存的更改。\n\n是：保存后关闭\n否：不保存直接关闭\n取消：返回继续编辑"
+    "dialog.unsaved_text": "有未保存的更改。\n\n是：保存后关闭\n否：不保存直接关闭\n取消：返回继续编辑",
+    "settings.show_secret": "显示密钥",
+    "settings.hide_secret": "隐藏密钥"
 }
