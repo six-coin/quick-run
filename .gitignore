@@ -9,7 +9,6 @@ wheels/
 # 虚拟环境与编辑器
 .venv/
 .idea/
-.workbuddy-ai/
 
 # 测试与类型检查缓存
 .pytest_cache/
@@ -20,3 +19,4 @@ wheels/
 logs/
 custom/
 config/
+.workbuddy-ai/
