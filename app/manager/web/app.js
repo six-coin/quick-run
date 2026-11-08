@@ -19,7 +19,7 @@
     data: null,
     settings: null,
     strings: {},
-    language: 'zh',
+    language: 'zh-CN',
     filter: '',
     collapsed: new Set(),
     dragging: null,
@@ -66,7 +66,7 @@
     const payload = await call('get_strings');
     if (!payload) return;
     state.strings = payload.strings || {};
-    state.language = payload.language || 'zh';
+    state.language = payload.language || 'zh-CN';
   }
 
   /** 把静态标记上的文案全部换成当前语言。 */
@@ -85,7 +85,7 @@
     });
 
     document.title = T('manager.title');
-    document.documentElement.lang = state.language === 'zh' ? 'zh-CN' : 'en';
+    document.documentElement.lang = state.language;
     $('list').setAttribute('aria-label', T('manager.list_label'));
     $('f-function').setAttribute('aria-label', T('manager.debug_function'));
 
@@ -1342,12 +1342,6 @@
 
     $('btn-save').addEventListener('click', function () {
       save();
-    });
-
-    $('btn-help').addEventListener('click', async function () {
-      const html = await call('help_html');
-      if (html) $('help-body').innerHTML = html;
-      openModal('modal-help');
     });
 
     document.querySelectorAll('[data-close]').forEach(function (button) {

@@ -1,4 +1,4 @@
-"""Fast Run 操作管理器入口。
+"""Quick Run 操作管理器入口。
 
 双击 ``manager.bat`` 时由虚拟环境里的 ``pythonw.exe`` 执行本文件。
 """

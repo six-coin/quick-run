@@ -141,21 +141,21 @@
 
 ## 4. 语言包
 
-`app/locales/{zh,en}.json` 是扁平的键值表：
+`app/locales/{语言代码}.json` 是扁平的键值表，文件名就是语言代码：
 
 ```json
 {
-  "manager.title": "Fast Run 操作管理器",
+  "manager.title": "Quick Run 操作管理器",
   "manager.count": "{total} 项 · {groups} 组"
 }
 ```
 
 - 键名用点分小写英文，值是该语言的最终文本。
 - `{name}` 形式的占位符由 `i18n.t("键", name=值)` 填充；占位符对不上时原样返回模板，不会抛异常。
-- 英文包缺键时回退中文，界面上不会出现裸露的键名。
+- 其他语言缺键时回退 `zh-CN`，界面上不会出现裸露的键名。
 - 类型、字段、调试动作的显示名由 `type.<类型>`、`field.<字段>`、`debug.<动作>` 三类键提供，代码里按值拼接查询。
 
-帮助正文是独立的 HTML 片段：`help.zh.html` / `help.en.html`，由 `i18n.help_html()` 读入后塞进管理器的帮助弹窗。
+语言目录在启动时扫描，新增语言只要放一个同结构的 JSON 文件；具体步骤见 [extending.md](extending.md)。
 
 ## 5. 日志
 

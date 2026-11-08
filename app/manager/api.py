@@ -72,9 +72,6 @@ class ManagerApi:
             "strings": i18n.strings(),
         }
 
-    def help_html(self) -> str:
-        return i18n.help_html()
-
     def get_settings(self) -> dict[str, Any]:
         """设置弹窗需要的全部字段。"""
         return {
@@ -87,7 +84,7 @@ class ManagerApi:
             "ai_api_key": self._config.ai_api_key,
             "languages": [
                 {"value": code, "label": label}
-                for code, label in i18n.LANGUAGE_NAMES.items()
+                for code, label in i18n.language_names().items()
             ],
             "themes": [
                 {"value": "light", "label": i18n.t("settings.light")},

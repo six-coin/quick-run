@@ -126,9 +126,26 @@ class AppSettings:
 
 def default_operations() -> list[dict[str, Any]]:
     """首次生成配置文件时写入的示例操作。"""
-    program_dir = str(paths.PROGRAM_DIR)
     startup_dir = r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
     return [
+        {
+            "display": i18n.t("default.manager"),
+            "type": "file",
+            "keywords": "manager",
+            "arguments": {"path": "manager.bat", "no_window": True},
+        },
+        {
+            "display": i18n.t("default.program_folder"),
+            "type": "dir",
+            "keywords": "folder",
+            "arguments": {"dir": ".", "allow_explore": False, "explore_depth": 0},
+        },
+        {
+            "display": i18n.t("default.startup_folder"),
+            "type": "dir",
+            "keywords": "startup",
+            "arguments": {"dir": startup_dir, "allow_explore": False, "explore_depth": 0},
+        },
         {
             "display": i18n.t("debug.restart"),
             "type": "debug",
@@ -140,24 +157,6 @@ def default_operations() -> list[dict[str, Any]]:
             "type": "debug",
             "keywords": "close",
             "arguments": {"function": "close"},
-        },
-        {
-            "display": i18n.t("default.manager"),
-            "type": "file",
-            "keywords": "manager|help",
-            "arguments": {"path": "manager.pyw", "no_window": False},
-        },
-        {
-            "display": i18n.t("default.program_folder"),
-            "type": "dir",
-            "keywords": "folder",
-            "arguments": {"dir": program_dir, "allow_explore": True, "explore_depth": 0},
-        },
-        {
-            "display": i18n.t("default.startup_folder"),
-            "type": "dir",
-            "keywords": "startup",
-            "arguments": {"dir": startup_dir, "allow_explore": True, "explore_depth": 0},
         },
     ]
 
@@ -251,7 +250,7 @@ def _parse_operations(items: list[Any], group_name: str) -> list[Operation]:
             )
         missing = [key for key in _OPERATION_KEYS if key not in item]
         if missing:
-            fields = ("、" if i18n.language() == "zh" else ", ").join(missing)
+            fields = i18n.list_separator().join(missing)
             raise ConfigError(
                 i18n.t(
                     "config.op_missing_in",

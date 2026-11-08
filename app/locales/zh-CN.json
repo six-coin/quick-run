@@ -1,5 +1,5 @@
 {
-    "manager.title": "Fast Run 操作管理器",
+    "manager.title": "Quick Run 操作管理器",
     "manager.count": "{total} 项 · {groups} 组",
     "manager.count_filtered": "{shown} / {total} 项",
     "manager.count_enabled": "{count} 启用",
@@ -9,7 +9,6 @@
     "manager.theme": "切换深色模式",
     "manager.settings": "设置",
     "manager.new_group": "新建分组",
-    "manager.help": "帮助",
     "manager.save": "保存文件",
     "manager.empty_title": "还没有任何分组",
     "manager.empty_text": "先建一个分组，再把操作放进去。",
@@ -42,7 +41,6 @@
     "manager.debug_function": "调试功能",
     "manager.delete_op": "删除该操作",
     "manager.move_group": "切换到组",
-    "manager.help_title": "使用帮助",
     "manager.picker_title": "切换到分组",
     "manager.unsaved_title": "有未保存的更改",
     "manager.unsaved_text": "关闭前要把改动写入 config/operations.json 吗？",
@@ -155,5 +153,8 @@
     "service.unknown_error": "未知错误",
     "dialog.unsaved_text": "有未保存的更改。\n\n是：保存后关闭\n否：不保存直接关闭\n取消：返回继续编辑",
     "settings.show_secret": "显示密钥",
-    "settings.hide_secret": "隐藏密钥"
+    "settings.hide_secret": "隐藏密钥",
+    "fatal.title_startup": "Quick Run - 启动失败",
+    "fatal.title_runtime": "Quick Run - 程序错误",
+    "fatal.unhandled": "程序运行中出现未捕获的异常：\n{type}: {value}\n\n日志文件：{log}"
 }

@@ -1,5 +1,5 @@
 [project]
-name = "fast-run"
+name = "quick-run"
 version = "2.0.0"
 description = "Windows 上的快速启动器与操作管理器。"
 readme = "README.md"

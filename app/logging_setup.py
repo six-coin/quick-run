@@ -17,7 +17,7 @@ from types import TracebackType
 
 from loguru import logger
 
-from app import paths
+from app import i18n, paths
 
 LOG_FILE: Path | None = None
 _CONFIGURED = False
@@ -56,14 +56,14 @@ def setup(name: str) -> Path:
     return log_file
 
 
-def fatal(message: str, title: str = "Fast Run - 启动失败") -> None:
+def fatal(message: str) -> None:
     """记录致命错误、弹窗告知用户，然后退出进程。"""
     try:
         logger.critical(message)
         logger.complete()
     except Exception:
         pass
-    _message_box(message, title)
+    _message_box(message, i18n.t("fatal.title_startup"))
     os._exit(1)
 
 
@@ -81,9 +81,13 @@ def _excepthook(
     except Exception:
         pass
     _message_box(
-        f"程序运行中出现未捕获的异常：\n{exc_type.__name__}: {exc_value}\n\n"
-        f"日志文件：{LOG_FILE}",
-        "Fast Run - 程序错误",
+        i18n.t(
+            "fatal.unhandled",
+            type=exc_type.__name__,
+            value=exc_value,
+            log=LOG_FILE,
+        ),
+        i18n.t("fatal.title_runtime"),
     )
 
 

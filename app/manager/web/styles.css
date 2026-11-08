@@ -597,7 +597,7 @@ input[type="password"]:focus {
 
 .foot-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1176,37 +1176,6 @@ input.invalid {
   font-size: 16px;
   font-weight: 500;
   color: var(--text-strong);
-}
-
-.modal-body {
-  padding: 0 22px 22px;
-  overflow-y: auto;
-  line-height: 1.85;
-  font-size: 15px;
-}
-
-.modal-body h3 {
-  margin: 20px 0 8px;
-  font-size: 15.5px;
-  font-weight: 600;
-  color: var(--text-strong);
-}
-
-.modal-body ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.modal-body li {
-  margin: 6px 0;
-}
-
-.modal-body code {
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--surface-active);
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 13.5px;
 }
 
 .modal-text {

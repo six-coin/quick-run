@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fast Run 操作管理器</title>
+<title>Quick Run 操作管理器</title>
 <script>
   // 首帧之前先把外观定下来，避免深色模式闪一下白。
   // 优先用上次记住的值，其次跟随系统；随后 get_state 会再校正一次。
@@ -27,7 +27,7 @@
   <aside class="sidebar">
     <header class="sidebar-head">
       <div class="titles">
-        <h1 data-i18n="manager.title">Fast Run 操作管理器</h1>
+        <h1 data-i18n="manager.title">Quick Run 操作管理器</h1>
         <p id="count-label">0</p>
       </div>
       <div class="head-actions">
@@ -65,10 +65,7 @@
       <div class="foot-row">
         <button type="button" id="btn-expand-all" class="btn ghost" data-i18n="manager.expand_all">展开全部</button>
         <button type="button" id="btn-collapse-all" class="btn ghost" data-i18n="manager.collapse_all">折叠全部</button>
-      </div>
-      <div class="foot-row">
         <button type="button" id="btn-add-group" class="btn ghost" data-i18n="manager.new_group">新建分组</button>
-        <button type="button" id="btn-help" class="btn ghost" data-i18n="manager.help">帮助</button>
       </div>
       <button type="button" id="btn-save" class="btn primary block">
         <span data-i18n="manager.save">保存文件</span><kbd>Ctrl+S</kbd>
@@ -227,16 +224,6 @@
       </div>
     </section>
   </main>
-</div>
-
-<div id="modal-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
-  <div class="modal-card" tabindex="-1">
-    <header class="modal-head">
-      <h2 id="help-title" data-i18n="manager.help_title">使用帮助</h2>
-      <button type="button" class="icon-btn" data-close="modal-help" data-i18n-title="manager.help_title">×</button>
-    </header>
-    <div id="help-body" class="modal-body"></div>
-  </div>
 </div>
 
 <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">

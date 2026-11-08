@@ -161,14 +161,14 @@ def test_app_config_is_created_with_system_theme(tmp_path, monkeypatch):
     assert target.exists()
     payload = json.loads(target.read_text(encoding="utf-8"))
     assert payload["theme"] == "dark"
-    assert payload["language"] == "zh"
+    assert payload["language"] == "zh-CN"
     assert payload["navigation"] == {"max_depth": 5, "max_entries": 100}
 
 
 def test_app_config_roundtrip(tmp_path):
     target = tmp_path / "app.json"
     config = settings.AppConfig(
-        language="en",
+        language="en-US",
         theme="dark",
         max_depth=3,
         max_entries=50,
@@ -199,7 +199,7 @@ def test_app_config_clamps_out_of_range_values(tmp_path):
 
     config = settings.load_app_config(target)
 
-    assert config.language == "zh"
+    assert config.language == "zh-CN"
     assert config.theme == "light"
     assert config.max_depth == 5
     assert config.max_entries == 1
@@ -290,3 +290,41 @@ def test_normalize_cleans_keywords():
     operation = Operation(display="A", keywords="X||Y|", arguments={"path": "p"})
     operation.normalize()
     assert operation.keywords == "x|y"
+
+
+# -- 默认配置模板 ---------------------------------------------------------
+def test_default_operations_template():
+    operations = settings.default_operations()
+
+    assert [item["keywords"] for item in operations] == [
+        "manager",
+        "folder",
+        "startup",
+        "restart",
+        "close",
+    ]
+
+    manager = operations[0]
+    assert manager["type"] == "file"
+    assert manager["arguments"] == {"path": "manager.bat", "no_window": True}
+
+    program_folder = operations[1]
+    assert program_folder["type"] == "dir"
+    assert program_folder["arguments"] == {
+        "dir": ".",
+        "allow_explore": False,
+        "explore_depth": 0,
+    }
+
+    assert operations[3]["arguments"] == {"function": "restart"}
+    assert operations[4]["arguments"] == {"function": "close"}
+
+
+def test_generated_operations_use_localized_names(tmp_path):
+    target = tmp_path / "operations.json"
+
+    settings.load_groups(target)
+
+    data = json.loads(target.read_text(encoding="utf-8"))
+    assert data[0]["name"] == "默认分组"
+    assert data[0]["operations"][0]["display"] == "操作管理与帮助"

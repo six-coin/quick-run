@@ -1,4 +1,4 @@
-"""Fast Run 启动器入口。
+"""Quick Run 启动器入口。
 
 双击 ``main.bat`` 时由虚拟环境里的 ``pythonw.exe`` 执行本文件。
 """

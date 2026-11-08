@@ -4,7 +4,7 @@
 
 ## 1. 目标与约束
 
-Fast Run 有两个独立进程：
+Quick Run 有两个独立进程：
 
 - **启动器**（`main.pyw`）：常驻后台，`Alt+Space` 唤出一个无边框搜索框，回车执行操作。
 - **操作管理器**（`manager.pyw`）：按需打开的网页界面，维护操作清单。
@@ -36,7 +36,7 @@ app/
 ├─ settings.py               配置读写与校验
 ├─ i18n.py                   文案查表
 ├─ logging_setup.py          loguru 初始化与致命错误处理
-├─ locales/                  zh.json / en.json / help.*.html
+├─ locales/                  zh-CN.json / en-US.json（文件名即语言代码）
 ├─ core/                     纯逻辑，零界面依赖
 │  ├─ matching.py            归一化、拼音、前缀匹配位置
 │  ├─ catalog.py             操作索引与前缀匹配
@@ -100,7 +100,7 @@ app/
 | `paths` | 计算所有路径；把配置里的相对路径按程序目录解析 | 不判断文件是否存在 |
 | `settings` | 读写两个 JSON、校验结构、夹取数值范围 | 不缓存，不持有界面状态 |
 | `models` | 数据结构、类型常量、字段校验、写盘前归一化 | 不读写文件 |
-| `i18n` | 按语言查表、填充占位符、加载帮助正文 | 不关心调用者是谁 |
+| `i18n` | 扫描语言目录、按语言查表、填充占位符 | 不关心调用者是谁 |
 | `core.matching` | 字符串归一化与拼音 | 不做 I/O |
 | `core.catalog` | 前缀匹配、找可浏览的文件夹操作 | 不执行操作 |
 | `core.navigation` | 解析浏览语法、逐层列目录 | 不打开任何东西 |
@@ -260,10 +260,13 @@ PROGRAM_DIR = PACKAGE_DIR.parent
 
 ## 9. 本地化
 
-- 文案键放在 `app/locales/{zh,en}.json`，帮助正文放在 `help.{zh,en}.html`。
-- `i18n.t("键", 占位符=值)` 查表并填充；英文缺键时回退中文，界面不会出现裸露的键名。
+- 文案键放在 `app/locales/{语言代码}.json`，**文件名就是语言代码**（`zh-CN.json`、`en-US.json`）。
+- `i18n.available_languages()` 扫描该目录，放进去什么语言就支持什么语言；`normalize()` 负责把配置里的值收敛到已发现的代码，认不出来时回退 `zh-CN`。
+- `i18n.t("键", 占位符=值)` 查表并填充；其他语言缺键时回退 `zh-CN`，界面不会出现裸露的键名。
+- 语言在界面上的显示名由 `i18n.language_names()` 给出，`_KNOWN_NAMES` 里没登记的代码直接用代码本身。
 - 类型、字段、调试动作的显示名由函数生成（`type_label()` 等），不缓存成模块级字典——否则导入时就把语言固定了。
 - 管理器的静态文案用 `data-i18n` / `data-i18n-placeholder` / `data-i18n-title` / `data-i18n-aria` 标记，启动时统一替换；动态文案用 `get_strings()` 拉到的表在 JS 里查。
+- 列举多个字段时的分隔符由 `i18n.list_separator()` 给出，中文用 `、`，其他语言用 `, `。
 
 新增语言的步骤见 [extending.md](extending.md)。
 
@@ -273,7 +276,7 @@ PROGRAM_DIR = PACKAGE_DIR.parent
 
 | 类别 | 方法 |
 |---|---|
-| 读取 | `get_state` `get_strings` `help_html` `get_settings` |
+| 读取 | `get_state` `get_strings` `get_settings` |
 | 选择 | `select_operation` `select_group` |
 | 结构编辑 | `add_operation` `add_group` `delete_operation` `delete_group` `move_operation` `move_group` `move_operation_by` `move_group_by` |
 | 字段编辑 | `set_field` `set_argument` `change_type` `set_group_name` `set_group_enabled` |

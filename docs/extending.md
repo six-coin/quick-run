@@ -61,14 +61,14 @@ elif operation.type == OperationType.SHELL:
 
 ### 1.4 文案
 
-`app/locales/zh.json` 与 `en.json` 都要加：
+`app/locales/zh-CN.json` 与 `en-US.json` 都要加：
 
 ```json
 "type.shell": "执行脚本",
 "field.script": "脚本"
 ```
 
-缺任何一条，英文界面会回退中文；两条都缺，界面会显示裸露的键名。
+缺任何一条，其他语言界面会回退 `zh-CN`；两条都缺，界面会显示裸露的键名。
 
 ### 1.5 检查清单
 
@@ -82,22 +82,24 @@ elif operation.type == OperationType.SHELL:
 
 ## 2. 新增一种语言
 
-1. 复制 `app/locales/en.json` 为 `app/locales/xx.json`，逐条翻译。键必须完全一致。
-2. 复制 `app/locales/help.en.html` 为 `help.xx.html`。
-3. `app/i18n.py`：
+不需要改代码。`app/i18n.py` 启动时扫描 `app/locales/*.json`，文件名就是语言代码。
+
+1. 复制 `app/locales/en-US.json`，重命名为目标代码，例如 `ja-JP.json`；
+2. 逐条翻译值，键名与 `{name}` 占位符保持不变；
+3. 重启管理器，设置弹窗的语言列表会自动多出一项。
+
+想让它显示成「日本語」而不是 `ja-JP`，在 `app/i18n.py` 的 `_KNOWN_NAMES` 里登记：
 
 ```python
-SUPPORTED_LANGUAGES = ("zh", "en", "xx")
-LANGUAGE_NAMES = {"zh": "中文", "en": "English", "xx": "…"}
+_KNOWN_NAMES = {"zh-CN": "中文", "en-US": "English", "ja-JP": "日本語"}
 ```
-
-4. 管理器的设置弹窗会自动从 `LANGUAGE_NAMES` 生成分段控件，不需要改前端。
-5. 跑一遍 `pytest`，确认 `tests/test_settings.py` 里的语言回退用例仍然通过。
 
 约定：
 
-- 键名只增不改。删键要同步删两份文件，否则另一语言会留下孤儿条目。
+- 键名只增不改。删键要同步删所有语言文件，否则其他语言会留下孤儿条目。
 - 占位符必须保持一致，`{name}` 不能写成 `{名称}`。
+- 缺键会回退 `zh-CN`，所以可以先把文件放进去再补翻译。
+- 新增语言后跑一遍 `pytest`，`tests/test_i18n.py` 会检查每份语言文件的键是否与默认语言一致。
 - 英文缺键会回退中文，所以新增键时可以先只写中文，但要记着补。
 
 ## 3. 接入新的外部服务
