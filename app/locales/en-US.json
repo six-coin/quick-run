@@ -37,7 +37,7 @@
     "manager.allow_explore": "Allow browsing subfolders",
     "manager.depth": "Explore depth",
     "manager.depth_hint": "0 lists the root only, at most {max}; folders with more than {max_entries} items are not expanded.",
-    "manager.command_hint": "Runs in a console window with the program folder as the working directory.",
+    "manager.command_hint": "Runs from the command line in the program directory without opening a console window.",
     "manager.debug_function": "Debug action",
     "manager.delete_op": "Delete this operation",
     "manager.move_group": "Move to group",

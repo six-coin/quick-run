@@ -37,7 +37,7 @@
     "manager.allow_explore": "允许浏览子文件夹",
     "manager.depth": "探索深度",
     "manager.depth_hint": "0 只列根目录，最大 {max}；单目录超过 {max_entries} 项不会展开。",
-    "manager.command_hint": "在程序目录下用命令行执行，会弹出控制台窗口。",
+    "manager.command_hint": "在程序目录下用命令行执行，不会弹出控制台窗口。",
     "manager.debug_function": "调试功能",
     "manager.delete_op": "删除该操作",
     "manager.move_group": "切换到组",
