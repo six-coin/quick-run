@@ -122,7 +122,7 @@
     "config.op_not_object_in": "Operation {index} in group “{name}” must be an object",
     "config.op_missing_in": "Operation {index} in group “{name}” is missing fields: {fields}",
     "default.group": "Default",
-    "default.manager": "Manager and help",
+    "default.manager": "Open Manager",
     "default.program_folder": "Open program folder",
     "default.startup_folder": "Open startup folder",
     "warn.no_enabled_group": "All groups are disabled; the launcher will only offer search, calculation and translation",

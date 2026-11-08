@@ -122,7 +122,7 @@
     "config.op_not_object_in": "分组「{name}」的第 {index} 条操作必须是对象",
     "config.op_missing_in": "分组「{name}」的第 {index} 条操作缺少字段：{fields}",
     "default.group": "默认分组",
-    "default.manager": "操作管理与帮助",
+    "default.manager": "打开操作管理器",
     "default.program_folder": "打开程序文件夹",
     "default.startup_folder": "打开启动文件夹",
     "warn.no_enabled_group": "所有分组都已关闭，启动器只会显示搜索、计算与翻译",
