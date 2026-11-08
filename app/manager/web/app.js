@@ -1218,9 +1218,6 @@
     $('btn-add-group').addEventListener('click', function () {
       addGroup();
     });
-    $('btn-add-group-end').addEventListener('click', function () {
-      addGroup();
-    });
     $('btn-expand-all').addEventListener('click', expandAll);
     $('btn-collapse-all').addEventListener('click', collapseAll);
     $('btn-group-add-op').addEventListener('click', function () {

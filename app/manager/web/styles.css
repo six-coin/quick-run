@@ -322,13 +322,6 @@ input[type="password"]:focus {
 }
 
 /* 分组列表 */
-.list-wrap {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  gap: 6px;
-  min-height: 0;
-}
-
 .list {
   min-height: 0;
   padding: 0 2px 0 0;
@@ -593,41 +586,6 @@ input[type="password"]:focus {
   line-height: 1.9;
 }
 
-.list-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 30px;
-  padding: 0;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
-}
-
-.list-add svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-}
-
-.list-add:hover {
-  border-color: var(--blue);
-  background: var(--blue-soft);
-  color: var(--blue-text);
-}
-
-/* 焦点环画在虚线框内侧，否则会顶到侧栏外面去。 */
-.list-add:focus-visible {
-  outline-offset: -2px;
-}
-
 /* 底部按钮 */
 .sidebar-foot {
   display: flex;
@@ -782,7 +740,6 @@ kbd {
 .icon-btn:focus-visible,
 .pill:focus-visible,
 .search-clear:focus-visible,
-.list-add:focus-visible,
 .chevron-btn:focus-visible,
 .picker-item:focus-visible,
 .seg-item:focus-visible,
