@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import ctypes
 import threading
+from collections.abc import Callable
 from ctypes import wintypes
-from typing import Callable
 
 from loguru import logger
 
@@ -55,9 +55,7 @@ class HotkeyListener(threading.Thread):
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         self._thread_id = kernel32.GetCurrentThreadId()
 
-        if not user32.RegisterHotKey(
-            None, self._hotkey_id, self._modifiers, self._virtual_key
-        ):
+        if not user32.RegisterHotKey(None, self._hotkey_id, self._modifiers, self._virtual_key):
             code = ctypes.get_last_error()
             self.error = i18n.t("fatal.hotkey_failed", label=self._label, code=code)
             logger.error(self.error)

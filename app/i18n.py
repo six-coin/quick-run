@@ -6,6 +6,9 @@
 
 模板里可以用 ``{name}`` 这样的占位符，通过 ``t("键", name=值)`` 填充；
 占位符缺失时原样返回模板，避免因为一个字段名写错就整条文案报错。
+
+每种语言在文件里用 ``language.name`` 声明自己的显示名（用该语言自己的文字），
+所以新增语言时不必改代码，也不会有语言名散落在程序里。
 """
 
 from __future__ import annotations
@@ -18,8 +21,8 @@ from app import paths
 #: 找不到配置或配置非法时使用的语言。
 DEFAULT_LANGUAGE = "zh-CN"
 
-#: 语言代码在界面上的显示名。没列到的语言直接用代码本身当名字。
-_KNOWN_NAMES: dict[str, str] = {"zh-CN": "中文", "en-US": "English"}
+#: 语言包里的语言自称。用它自己的文字书写，界面上直接展示这个值。
+NAME_KEY = "language.name"
 
 _catalog: dict[str, str] = {}
 _fallback: dict[str, str] = {}
@@ -40,8 +43,16 @@ def available_languages() -> tuple[str, ...]:
 
 
 def language_names() -> dict[str, str]:
-    """语言代码到界面显示名的映射。"""
-    return {code: _KNOWN_NAMES.get(code, code) for code in available_languages()}
+    """语言代码到界面显示名的映射。
+
+    显示名由每种语言在自己的语言包里用 ``language.name`` 声明（用该语言自己
+    的文字书写），程序里不硬编码任何语言名。缺这个键时退回语言代码本身。
+    """
+    names: dict[str, str] = {}
+    for code in available_languages():
+        label = str(_load(code).get(NAME_KEY) or "").strip()
+        names[code] = label or code
+    return names
 
 
 def language() -> str:
@@ -98,7 +109,7 @@ def list_separator() -> str:
 def _load(language_code: str) -> dict[str, str]:
     target = paths.LOCALE_DIR / f"{language_code}.json"
     try:
-        with open(target, "r", encoding="utf-8") as handle:
+        with open(target, encoding="utf-8") as handle:
             data = json.load(handle)
     except (OSError, json.JSONDecodeError):
         return {}

@@ -24,6 +24,8 @@ uv sync
 
 Re-run `setup.bat` after upgrading or on a new machine; dependency versions are pinned by `uv.lock`.
 
+The package index is pinned in `uv.toml` at the project root (Aliyun mirror by default) instead of relying on the machine-wide uv config. To use a different network, change the `url` there and run `uv lock` again.
+
 ## 2. Starting
 
 | File | Purpose |
@@ -143,7 +145,7 @@ Click the gear at the right of the title bar:
 
 | Item | Description |
 |---|---|
-| Language | Chinese / English built in; switching applies immediately |
+| Language | Simplified Chinese (China) / English (US) built in; switching applies immediately |
 | Appearance | Light / dark. The first launch follows the system, afterwards this value wins |
 | Max scan depth | Global depth limit for folder browsing, 0–5 |
 | Max entries per folder | Folders with more entries are not expanded, keeping the UI responsive |
@@ -223,7 +225,7 @@ Each launch creates one log file, `logs/main_*.log` or `logs/manage_*.log`. A fi
 
 ## 6. Languages
 
-Two are built in: `zh-CN` (Chinese) and `en-US` (English). Language files live in `app/locales`, and **the file name is the language code**:
+Two are built in: `zh-CN` (Simplified Chinese) and `en-US` (English). Language files live in `app/locales`, and **the file name is the language code**:
 
 ```
 app/locales/zh-CN.json
@@ -236,13 +238,10 @@ The directory is scanned at startup, so whatever languages are present are suppo
 
 1. Copy `app/locales/en-US.json` and rename it to the target code, e.g. `ja-JP.json`;
 2. Translate the values, **keeping the keys and `{name}` placeholders unchanged**;
-3. Restart the manager; the language list in settings now includes it.
+3. Set `language.name` to the language's own name (for example `"日本語"`); that is what the language list shows;
+4. Restart the manager; the language list in settings now includes it.
 
-The display name defaults to the code itself (`ja-JP`). To show 「日本語」 instead, add one line to `_KNOWN_NAMES` in `app/i18n.py`:
-
-```python
-_KNOWN_NAMES = {"zh-CN": "中文", "en-US": "English", "ja-JP": "日本語"}
-```
+If `language.name` is missing, the language list falls back to the code itself (`ja-JP`).
 
 Other rules:
 

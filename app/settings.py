@@ -36,6 +36,9 @@ _OPERATION_KEYS = ("display", "type", "arguments", "keywords")
 #: 单目录条目上限的取值范围，避免手改配置写进离谱的数字。
 MAX_ENTRIES_RANGE = (1, 10000)
 
+#: 单目录条目上限的默认值，也是读不出数字时的回退值。
+DEFAULT_MAX_ENTRIES = 100
+
 
 @dataclass(frozen=True)
 class TranslateConfig:
@@ -56,7 +59,7 @@ class AppConfig:
     language: str = i18n.DEFAULT_LANGUAGE
     theme: str = "light"
     max_depth: int = MAX_EXPLORE_DEPTH
-    max_entries: int = 100
+    max_entries: int = DEFAULT_MAX_ENTRIES
     translate_appid: str = ""
     translate_secret: str = ""
     ai_api_key: str = ""
@@ -69,7 +72,7 @@ class AppConfig:
         return TranslateConfig(self.translate_appid, self.translate_secret)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AppConfig":
+    def from_dict(cls, data: dict[str, Any]) -> AppConfig:
         navigation = data.get("navigation")
         navigation = navigation if isinstance(navigation, dict) else {}
         translate = data.get("translate")
@@ -245,9 +248,7 @@ def _parse_operations(items: list[Any], group_name: str) -> list[Operation]:
     operations: list[Operation] = []
     for index, item in enumerate(items):
         if not isinstance(item, dict):
-            raise ConfigError(
-                i18n.t("config.op_not_object_in", name=group_name, index=index + 1)
-            )
+            raise ConfigError(i18n.t("config.op_not_object_in", name=group_name, index=index + 1))
         missing = [key for key in _OPERATION_KEYS if key not in item]
         if missing:
             fields = i18n.list_separator().join(missing)
@@ -287,7 +288,7 @@ def load_settings() -> AppSettings:
 # -- 底层读写 -------------------------------------------------------------
 def _read_json(path: Path) -> Any:
     try:
-        with open(path, "r", encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             return json.load(handle)
     except FileNotFoundError as error:
         raise ConfigError(i18n.t("config.not_found", path=path)) from error
@@ -328,5 +329,5 @@ def clamp_entries(value: Any) -> int:
     try:
         count = int(str(value).strip())
     except (TypeError, ValueError):
-        return 100
+        return DEFAULT_MAX_ENTRIES
     return max(low, min(count, high))

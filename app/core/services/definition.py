@@ -34,9 +34,7 @@ class GlmDefinition:
         headers = {"Authorization": self._api_key, "Content-Type": "application/json"}
 
         try:
-            response = requests.post(
-                _ENDPOINT, headers=headers, json=body, timeout=self._timeout
-            )
+            response = requests.post(_ENDPOINT, headers=headers, json=body, timeout=self._timeout)
             payload = response.json()
         except Exception as error:
             raise ServiceError(str(error)) from error

@@ -100,9 +100,7 @@ class QueryResolver:
             if operation is not None and raw_root:
                 root = paths.resolve_user_path(raw_root)
                 if self._navigator.can_explore(root):
-                    result = self._navigator.navigate(
-                        root, nav_text, operation.explore_depth()
-                    )
+                    result = self._navigator.navigate(root, nav_text, operation.explore_depth())
                     if result.error:
                         return Resolution([self._error_row(result.error)])
                     return Resolution(
@@ -114,9 +112,7 @@ class QueryResolver:
 
             matched = self._catalog.match(text)
             if matched:
-                return Resolution(
-                    [self._external_row(operation) for operation in matched]
-                )
+                return Resolution([self._external_row(operation) for operation in matched])
             return self._internal(text)
 
         # 不在文件夹浏览状态时，``关键词#n`` 直接选出第 n 个匹配项，
@@ -164,9 +160,7 @@ class QueryResolver:
             if calculator.needs_async(text):
                 row.status = RowStatus.LOADING
                 row.text = i18n.t("launcher.calculating")
-                pending.append(
-                    PendingRequest(row.key, RowKind.CALCULATE, text, CALC_DEBOUNCE_MS)
-                )
+                pending.append(PendingRequest(row.key, RowKind.CALCULATE, text, CALC_DEBOUNCE_MS))
             else:
                 try:
                     row.value = calculator.evaluate(text)
@@ -196,9 +190,7 @@ class QueryResolver:
                 status=RowStatus.LOADING,
             )
             rows.append(row)
-            pending.append(
-                PendingRequest(row.key, RowKind.TRANSLATE, text, TRANSLATE_DEBOUNCE_MS)
-            )
+            pending.append(PendingRequest(row.key, RowKind.TRANSLATE, text, TRANSLATE_DEBOUNCE_MS))
         else:
             rows.append(
                 self._row(RowKind.TRANSLATE, i18n.t("launcher.translate", text=text), payload=text)
@@ -227,6 +219,4 @@ class QueryResolver:
 
     def _error_row(self, message_key: str) -> ResultRow:
         message = i18n.t(message_key)
-        return self._row(
-            RowKind.ERROR, i18n.t("launcher.error", message=message), payload=message
-        )
+        return self._row(RowKind.ERROR, i18n.t("launcher.error", message=message), payload=message)

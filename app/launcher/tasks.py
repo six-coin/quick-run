@@ -10,7 +10,7 @@ QRunnable 在报告完成之前一直保留引用，否则 Qt 还在跑的时候
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from loguru import logger
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal

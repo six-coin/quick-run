@@ -326,5 +326,6 @@ def test_generated_operations_use_localized_names(tmp_path):
     settings.load_groups(target)
 
     data = json.loads(target.read_text(encoding="utf-8"))
-    assert data[0]["name"] == "默认分组"
-    assert data[0]["operations"][0]["display"] == "操作管理与帮助"
+    # 断言的是「生成时用的是文案而不是键名」，所以和语言包比对，不写死具体文字。
+    assert data[0]["name"] == i18n.t("default.group")
+    assert data[0]["operations"][0]["display"] == i18n.t("default.manager")

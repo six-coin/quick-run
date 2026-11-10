@@ -1,0 +1,5 @@
+# 项目级 uv 配置：把包索引固定在仓库里，避免锁文件绑定某台机器的全局配置。
+# 换网络环境时改这里的 url，然后重新执行 uv lock。
+[[index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true

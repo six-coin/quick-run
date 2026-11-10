@@ -275,8 +275,10 @@ body {
   pointer-events: none;
 }
 
+/* 搜索框的内边距要给图标留位置，所以只限定在 .search 里；
+   密码框有自己的一套样式，不能继承这里的 34px 左内边距。 */
 .search input[type="text"],
-input[type="password"] {
+.search input[type="password"] {
   width: 100%;
   height: 38px;
   padding: 0 32px 0 34px;
@@ -292,8 +294,7 @@ input[type="password"] {
   color: var(--muted);
 }
 
-.search input[type="text"]:focus,
-input[type="password"]:focus {
+.search input:focus {
   outline: none;
   background: var(--panel);
   border-color: var(--blue);
@@ -917,7 +918,8 @@ kbd {
   font-size: 13px;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="password"] {
   width: 100%;
   height: 38px;
   padding: 0 11px;
@@ -935,7 +937,8 @@ input[type="password"]::placeholder {
   color: var(--placeholder);
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+input[type="password"]:focus {
   outline: none;
   border-color: var(--blue);
   box-shadow: 0 0 0 3px var(--focus-ring);

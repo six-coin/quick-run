@@ -68,11 +68,7 @@ def test_all_modules_parse():
 
 
 def test_no_chdir_anywhere():
-    offenders = [
-        path.name
-        for path, text in _sources(APP_DIR)
-        if _calls_chdir(_parse(path, text))
-    ]
+    offenders = [path.name for path, text in _sources(APP_DIR) if _calls_chdir(_parse(path, text))]
     assert offenders == []
 
 

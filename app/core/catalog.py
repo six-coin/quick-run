@@ -35,16 +35,14 @@ class Catalog:
         normalized = normalize_alnum(query)
         matched: list[Operation] = []
 
-        for operation, normalized_keywords in zip(self._operations, self._normalized):
+        for operation, normalized_keywords in zip(self._operations, self._normalized, strict=True):
             if operation.type == OperationType.DIR:
                 if not normalized:
                     continue
                 if any(keyword.startswith(normalized) for keyword in normalized_keywords):
                     matched.append(operation)
             else:
-                if any(
-                    keyword.startswith(lowered) for keyword in operation.keyword_list()
-                ):
+                if any(keyword.startswith(lowered) for keyword in operation.keyword_list()):
                     matched.append(operation)
         return matched
 
@@ -53,7 +51,7 @@ class Catalog:
         normalized = normalize_alnum(token)
         if not normalized:
             return None
-        for operation, normalized_keywords in zip(self._operations, self._normalized):
+        for operation, normalized_keywords in zip(self._operations, self._normalized, strict=True):
             if operation.type != OperationType.DIR or not operation.allow_explore():
                 continue
             if any(keyword.startswith(normalized) for keyword in normalized_keywords):

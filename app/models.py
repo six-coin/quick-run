@@ -9,7 +9,6 @@ JSON 结构是对外的硬约定，必须保持稳定：
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -85,9 +84,7 @@ def sanitize_keywords(raw: str) -> str:
     什么都不剩时返回空串，由上层当作“没填”处理。
     """
     lowered = (raw or "").lower()
-    cleaned = "".join(
-        char for char in lowered if ("a" <= char <= "z") or char == "|"
-    )
+    cleaned = "".join(char for char in lowered if ("a" <= char <= "z") or char == "|")
     unique: list[str] = []
     for part in cleaned.split("|"):
         if part and part not in unique:
@@ -147,12 +144,10 @@ class Operation:
     type: str = OperationType.FILE
     arguments: dict[str, Any] = field(default_factory=lambda: default_arguments(OperationType.FILE))
     keywords: str = ""
-    #: 仅用于拖拽时保持选中稳定，永远不写进配置文件。
-    uid: str = field(default_factory=lambda: uuid.uuid4().hex, compare=False, repr=False)
 
     # -- 构造 -------------------------------------------------------------
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Operation":
+    def from_dict(cls, data: dict[str, Any]) -> Operation:
         op_type = str(data.get("type") or OperationType.FILE)
         raw_args = data.get("arguments")
         arguments = dict(raw_args) if isinstance(raw_args, dict) else {}
@@ -174,7 +169,7 @@ class Operation:
             "arguments": self.arguments,
         }
 
-    def copy(self) -> "Operation":
+    def copy(self) -> Operation:
         return Operation(
             display=self.display,
             type=self.type,

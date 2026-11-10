@@ -10,7 +10,7 @@
 
 ```json
 {
-  "language": "zh",
+  "language": "zh-CN",
   "theme": "light",
   "navigation": {
     "max_depth": 5,
@@ -28,7 +28,7 @@
 
 | 字段 | 类型 | 默认 | 取值与行为 |
 |---|---|---|---|
-| `language` | 字符串 | `"zh"` | `zh` / `en`；其他值回退 `zh` |
+| `language` | 字符串 | `"zh-CN"` | `app/locales` 下已有的语言代码；其他值回退 `zh-CN` |
 | `theme` | 字符串 | 系统偏好 | `light` / `dark`；其他值回退 `light` |
 | `navigation.max_depth` | 整数 | `5` | 0–5，越界夹取；非数字回退 5 |
 | `navigation.max_entries` | 整数 | `100` | 1–10000，越界夹取；非数字回退 100 |
@@ -145,12 +145,14 @@
 
 ```json
 {
+  "language.name": "简体中文 (中国)",
   "manager.title": "Quick Run 操作管理器",
   "manager.count": "{total} 项 · {groups} 组"
 }
 ```
 
 - 键名用点分小写英文，值是该语言的最终文本。
+- `language.name` 是这门语言**用自己文字书写的名字**，设置里的语言列表直接显示它；缺失时退回语言代码。程序里没有任何硬编码的语言名。
 - `{name}` 形式的占位符由 `i18n.t("键", name=值)` 填充；占位符对不上时原样返回模板，不会抛异常。
 - 其他语言缺键时回退 `zh-CN`，界面上不会出现裸露的键名。
 - 类型、字段、调试动作的显示名由 `type.<类型>`、`field.<字段>`、`debug.<动作>` 三类键提供，代码里按值拼接查询。

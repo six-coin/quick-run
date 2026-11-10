@@ -83,8 +83,7 @@ class ManagerApi:
             "translate_secret": self._config.translate_secret,
             "ai_api_key": self._config.ai_api_key,
             "languages": [
-                {"value": code, "label": label}
-                for code, label in i18n.language_names().items()
+                {"value": code, "label": label} for code, label in i18n.language_names().items()
             ],
             "themes": [
                 {"value": "light", "label": i18n.t("settings.light")},
@@ -326,16 +325,12 @@ class ManagerApi:
             settings_module.save_groups(self._groups)
         except Exception as failure:  # 需要把原因显示给用户
             logger.exception("保存操作列表失败")
-            return self._state(
-                ok=False, message=i18n.t("manager.save_failed", error=failure)
-            )
+            return self._state(ok=False, message=i18n.t("manager.save_failed", error=failure))
 
         self._errors = []
         self._dirty = False
         message = (
-            i18n.t("manager.saved_cleaned", count=cleaned)
-            if cleaned
-            else i18n.t("manager.saved")
+            i18n.t("manager.saved_cleaned", count=cleaned) if cleaned else i18n.t("manager.saved")
         )
         return self._state(ok=True, message=message)
 
@@ -385,7 +380,7 @@ class ManagerApi:
             if self._window is not None:
                 shown = bool(
                     self._window.evaluate_js(
-                        "window.fastrun ? window.fastrun.askUnsaved() : false"
+                        "window.quickRun ? window.quickRun.askUnsaved() : false"
                     )
                 )
         except Exception as error:  # 兜底走系统对话框
@@ -419,10 +414,7 @@ class ManagerApi:
         return str(result)
 
     def _valid_operation(self, group: int, index: int) -> bool:
-        return (
-            0 <= group < len(self._groups)
-            and 0 <= index < len(self._groups[group].operations)
-        )
+        return 0 <= group < len(self._groups) and 0 <= index < len(self._groups[group].operations)
 
     def _next_group_name(self) -> str:
         existing = {group.name for group in self._groups}
@@ -442,9 +434,7 @@ class ManagerApi:
 
     def _state(self, ok: bool = True, message: str = "") -> dict[str, Any]:
         total = sum(len(group.operations) for group in self._groups)
-        enabled_total = sum(
-            len(group.operations) for group in self._groups if group.enabled
-        )
+        enabled_total = sum(len(group.operations) for group in self._groups if group.enabled)
         return {
             "ok": ok,
             "message": message,
@@ -459,8 +449,7 @@ class ManagerApi:
                             "index": index,
                             "group": group_index,
                             "display": operation.display,
-                            "label": operation.display
-                            or i18n.t("manager.unnamed_operation"),
+                            "label": operation.display or i18n.t("manager.unnamed_operation"),
                             "type": operation.type,
                             "type_label": type_label(operation.type),
                             "keywords": operation.keywords,
@@ -480,12 +469,9 @@ class ManagerApi:
             "enabled_total": enabled_total,
             "dirty": self._dirty,
             "errors": list(self._errors),
-            "types": [
-                {"value": value, "label": type_label(value)} for value in TYPE_ORDER
-            ],
+            "types": [{"value": value, "label": type_label(value)} for value in TYPE_ORDER],
             "debug_functions": [
-                {"value": value, "label": debug_label(value)}
-                for value in DEBUG_FUNCTION_VALUES
+                {"value": value, "label": debug_label(value)} for value in DEBUG_FUNCTION_VALUES
             ],
             "field_labels": {
                 name: field_label(name)

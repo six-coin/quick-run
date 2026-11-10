@@ -1,4 +1,5 @@
 {
+    "language.name": "English (US)",
     "manager.title": "Quick Run Manager",
     "manager.count": "{total} items · {groups} groups",
     "manager.count_filtered": "{shown} / {total} items",

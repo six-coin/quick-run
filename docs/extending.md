@@ -86,13 +86,10 @@ elif operation.type == OperationType.SHELL:
 
 1. 复制 `app/locales/en-US.json`，重命名为目标代码，例如 `ja-JP.json`；
 2. 逐条翻译值，键名与 `{name}` 占位符保持不变；
-3. 重启管理器，设置弹窗的语言列表会自动多出一项。
+3. 把 `language.name` 改成该语言自己的写法（例如 `"日本語"`）；
+4. 重启管理器，设置弹窗的语言列表会自动多出一项。
 
-想让它显示成「日本語」而不是 `ja-JP`，在 `app/i18n.py` 的 `_KNOWN_NAMES` 里登记：
-
-```python
-_KNOWN_NAMES = {"zh-CN": "中文", "en-US": "English", "ja-JP": "日本語"}
-```
+语言在界面上的显示名只来自语言包里的 `language.name`，程序里没有硬编码的名称表。这个键缺失时退回语言代码本身（`ja-JP`）。
 
 约定：
 
@@ -112,8 +109,7 @@ _KNOWN_NAMES = {"zh-CN": "中文", "en-US": "English", "ja-JP": "日本語"}
 
 ```python
 class WeatherService:
-    def __init__(self, api_key: str, timeout: float = 5.0) -> None:
-        ...
+    def __init__(self, api_key: str, timeout: float = 5.0) -> None: ...
 
     def current(self, city: str) -> str:
         """失败时抛 ServiceError，由上层转成结果行文案。"""

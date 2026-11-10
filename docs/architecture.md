@@ -187,7 +187,7 @@ setup 日志
   "errors": [{ "group": 0, "index": 1, "field": "keywords", "label": "匹配字串" }],
   "types": [...],
   "debug_functions": [...],
-  "language": "zh",
+  "language": "zh-CN",
   "theme": "light",
   "navigation": { "max_depth": 5, "max_entries": 100 }
 }
@@ -207,7 +207,7 @@ closing 回调（UI 线程）
   → return False                    取消本次关闭
 
 工作线程
-  → evaluate_js("window.fastrun.askUnsaved()")
+  → evaluate_js("window.quickRun.askUnsaved()")
   → 页面弹出自己的三选一对话框
 
 页面
@@ -263,7 +263,7 @@ PROGRAM_DIR = PACKAGE_DIR.parent
 - 文案键放在 `app/locales/{语言代码}.json`，**文件名就是语言代码**（`zh-CN.json`、`en-US.json`）。
 - `i18n.available_languages()` 扫描该目录，放进去什么语言就支持什么语言；`normalize()` 负责把配置里的值收敛到已发现的代码，认不出来时回退 `zh-CN`。
 - `i18n.t("键", 占位符=值)` 查表并填充；其他语言缺键时回退 `zh-CN`，界面不会出现裸露的键名。
-- 语言在界面上的显示名由 `i18n.language_names()` 给出，`_KNOWN_NAMES` 里没登记的代码直接用代码本身。
+- 语言在界面上的显示名由 `i18n.language_names()` 从各语言包的 `language.name` 读取（用该语言自己的文字），程序里没有硬编码的名称表；该键缺失时直接用代码本身。
 - 类型、字段、调试动作的显示名由函数生成（`type_label()` 等），不缓存成模块级字典——否则导入时就把语言固定了。
 - 管理器的静态文案用 `data-i18n` / `data-i18n-placeholder` / `data-i18n-title` / `data-i18n-aria` 标记，启动时统一替换；动态文案用 `get_strings()` 拉到的表在 JS 里查。
 - 列举多个字段时的分隔符由 `i18n.list_separator()` 给出，中文用 `、`，其他语言用 `, `。
@@ -317,4 +317,4 @@ uv sync
 
 - 涉及文件系统的用例一律用 `tmp_path`，不碰真实配置。
 - 涉及系统能力的用例注入假实现（`FakeOpener`、假剪贴板、假列举函数）。
-- 断言文案时用中文，`conftest.py` 已经把语言固定为 `zh`。
+- 断言文案时用中文，`conftest.py` 已经把语言固定为 `zh-CN`。

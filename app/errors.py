@@ -7,21 +7,21 @@
 from __future__ import annotations
 
 
-class FastRunError(Exception):
+class AppError(Exception):
     """本程序抛出的所有异常的基类。"""
 
 
-class ConfigError(FastRunError):
+class ConfigError(AppError):
     """配置文件缺失、读不出来，或者结构不合法。"""
 
 
-class CalcError(FastRunError):
+class CalcError(AppError):
     """表达式算不出来（语法错误、溢出、超时）。"""
 
 
-class ServiceError(FastRunError):
+class ServiceError(AppError):
     """远程服务（翻译 / 查词 / 朗读）调用失败。"""
 
 
-class ActionError(FastRunError):
+class ActionError(AppError):
     """动作执行失败（文件不存在、进程启动失败）。"""

@@ -233,7 +233,7 @@
 
   function rememberTheme(theme) {
     try {
-      localStorage.setItem('fastrunTheme', theme);
+      localStorage.setItem('quickrun.theme', theme);
     } catch (error) {
       /* 隐私模式下写不进去也无所谓，只影响首帧 */
     }
@@ -1505,7 +1505,8 @@
    * Python 在原生 ``closing`` 回调里碰不了网页（会死锁），所以它取消关闭、
    * 从工作线程调用这个方法；用户的选择再通过 ``answer_close`` 传回去。
    */
-  window.fastrun = {
+  // 名字不用 window.app：页面里有 id="app" 的元素，浏览器会用它占住这个全局名。
+  window.quickRun = {
     askUnsaved: function () {
       openModal('modal-unsaved');
       return true;

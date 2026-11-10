@@ -49,9 +49,7 @@ class RecordingOpener:
 
 
 def make_row(operation: Operation) -> ResultRow:
-    return ResultRow(
-        key="row", kind=RowKind.EXTERNAL, text=operation.display, payload=operation
-    )
+    return ResultRow(key="row", kind=RowKind.EXTERNAL, text=operation.display, payload=operation)
 
 
 def test_open_file_keeps_cwd(tmp_path, monkeypatch):

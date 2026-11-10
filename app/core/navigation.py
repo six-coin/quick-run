@@ -20,9 +20,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 from app.core.matching import match_position, normalize_alnum, to_pinyin
 from app.models import MAX_EXPLORE_DEPTH
@@ -80,11 +80,7 @@ def filter_entries(entries: Iterable[NavEntry], filter_text: str) -> list[NavEnt
     needle = normalize_alnum(filter_text)
     if not needle:
         return list(entries)
-    matches = [
-        entry
-        for entry in entries
-        if needle in entry.name.lower() or needle in entry.pinyin
-    ]
+    matches = [entry for entry in entries if needle in entry.name.lower() or needle in entry.pinyin]
     matches.sort(key=lambda entry: match_position(entry.name, entry.pinyin, needle))
     return matches
 

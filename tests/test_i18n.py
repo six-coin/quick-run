@@ -30,12 +30,14 @@ def test_normalize_accepts_discovered_codes_only():
     assert i18n.normalize(None) == i18n.DEFAULT_LANGUAGE
 
 
-def test_language_names_cover_every_locale():
+def test_language_names_come_from_each_locale_file():
+    """语言显示名由语言包自己声明，程序里没有硬编码的名称表。"""
     names = i18n.language_names()
 
     assert set(names) == set(i18n.available_languages())
-    assert names["zh-CN"] == "中文"
-    assert names["en-US"] == "English"
+    for code in i18n.available_languages():
+        assert names[code] == load(code)["language.name"]
+        assert names[code].strip() != ""
 
 
 def test_every_locale_has_the_same_keys():
