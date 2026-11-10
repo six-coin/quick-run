@@ -24,7 +24,9 @@ uv sync
 
 升级依赖或换机器时重跑一次 `setup.bat` 即可，依赖版本由 `uv.lock` 锁定。
 
-包索引固定在项目根的 `uv.toml`（默认阿里云镜像），不依赖本机的全局 uv 配置。换网络环境时改那里的 `url`，然后重新执行 `uv lock`。
+包索引固定在项目根的 `uv.toml`，用的是官方 PyPI，所以 `uv.lock` 里记录的是官方地址，任何机器 clone 下来都能直接装，不依赖本机的全局 uv 配置。
+
+国内网络慢的话，把 `uv.toml` 里的 `url` 换成镜像（例如 `https://mirrors.aliyun.com/pypi/simple/`）再执行 `uv lock`。注意锁文件会跟着变成镜像地址，这类改动不要提交。
 
 ## 2. 启动
 

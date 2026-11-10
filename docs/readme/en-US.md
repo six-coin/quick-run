@@ -24,7 +24,9 @@ uv sync
 
 Re-run `setup.bat` after upgrading or on a new machine; dependency versions are pinned by `uv.lock`.
 
-The package index is pinned in `uv.toml` at the project root (Aliyun mirror by default) instead of relying on the machine-wide uv config. To use a different network, change the `url` there and run `uv lock` again.
+The package index is pinned in `uv.toml` at the project root and points at official PyPI, so `uv.lock` records official URLs and a fresh clone installs without relying on the machine-wide uv config.
+
+On a slow network, swap the `url` in `uv.toml` for a mirror (e.g. `https://mirrors.aliyun.com/pypi/simple/`) and run `uv lock`. The lockfile will switch to the mirror URLs too — don't commit that change.
 
 ## 2. Starting
 
