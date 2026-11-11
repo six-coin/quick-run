@@ -1,8 +1,5 @@
-# 项目级 uv 配置：把包索引固定在仓库里，避免锁文件绑定某台机器的全局配置。
-#
-# 这里写官方 PyPI，锁文件因此记录官方地址，任何机器 clone 下来都能直接 uv sync。
-# 国内想加速：把 url 换成镜像（例如 https://mirrors.aliyun.com/pypi/simple/）
-# 再执行 uv lock —— 锁文件会跟着变成镜像地址，这类改动不要提交。
+# 国内镜像源：https://mirrors.aliyun.com/pypi/simple
+# 官方源：https://pypi.org/simple
 [[index]]
 url = "https://pypi.org/simple"
 default = true

@@ -1,8 +1,10 @@
-# Quick Run
+# Quick Run User Manual
 
 A keyboard launcher for Windows: press `Alt+Space`, type a few letters, and open a file, a folder, a web page or run a command. The bundled **operation manager** maintains that list through a web UI.
 
 [简体中文](zh-CN.md)
+
+[Back to project home](../../README.md) · [Architecture](../architecture.md) · [Configuration & data formats](../configuration.md)
 
 ---
 

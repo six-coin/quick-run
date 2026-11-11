@@ -1,8 +1,10 @@
-# Quick Run
+# 快捷运行 使用手册
 
 Windows 上的键盘启动器：按一次 `Alt+Space` 唤出搜索框，输入几个字母就能打开文件、文件夹、网页，或者执行命令。附带的**操作管理器**用网页界面维护这份操作清单。
 
 [English](en-US.md)
+
+[返回项目首页](../../README.md) · [架构设计](../architecture.md) · [配置与数据格式](../configuration.md)
 
 ---
 
