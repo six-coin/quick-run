@@ -1052,6 +1052,7 @@
 
     $('set-depth').value = String(settings.max_depth);
     $('set-entries').value = String(settings.max_entries);
+    $('set-animation').value = String(settings.animation_ms);
     $('set-appid').value = settings.translate_appid || '';
     $('set-secret').value = settings.translate_secret || '';
     $('set-ai').value = settings.ai_api_key || '';
@@ -1062,6 +1063,9 @@
     if (!state.settings) return;
     $('depth-limit-hint').textContent = T('settings.max_depth_hint', {
       max: state.settings.max_depth_limit,
+    });
+    $('animation-hint').textContent = T('settings.animation_hint', {
+      max: state.settings.animation_range[1],
     });
   }
 
@@ -1324,6 +1328,7 @@
     });
     bindSettingInput('set-depth', 'max_depth', true);
     bindSettingInput('set-entries', 'max_entries', true);
+    bindSettingInput('set-animation', 'animation_ms', true);
     bindSettingInput('set-appid', 'translate_appid', false);
     bindSettingInput('set-secret', 'translate_secret', false);
     bindSettingInput('set-ai', 'ai_api_key', false);

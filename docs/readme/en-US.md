@@ -151,6 +151,7 @@ Click the gear at the right of the title bar:
 |---|---|
 | Language | Simplified Chinese (China) / English (US) built in; switching applies immediately |
 | Appearance | Light / dark. The first launch follows the system, afterwards this value wins |
+| Fade duration | Milliseconds for the launcher's fade in and out, 0–1000; 0 disables the animation. Restart the launcher to apply |
 | Max scan depth | Global depth limit for folder browsing, 0–5 |
 | Max entries per folder | Folders with more entries are not expanded, keeping the UI responsive |
 | Baidu Translate | Translation is enabled only when both `appid` and secret key are set |

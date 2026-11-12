@@ -86,7 +86,11 @@ def _run() -> None:
         translator=translator,
         definition=definition,
     )
-    window = SearchWindow(controller, theme.for_theme(settings.config.theme))
+    window = SearchWindow(
+        controller,
+        theme.for_theme(settings.config.theme),
+        settings.config.animation_ms,
+    )
 
     bridge = _HotkeyBridge()
     bridge.triggered.connect(window.show_window)

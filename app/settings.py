@@ -39,6 +39,10 @@ MAX_ENTRIES_RANGE = (1, 10000)
 #: 单目录条目上限的默认值，也是读不出数字时的回退值。
 DEFAULT_MAX_ENTRIES = 100
 
+#: 淡入淡出时长的取值范围与默认值（毫秒）。0 表示不做动画。
+ANIMATION_RANGE = (0, 1000)
+DEFAULT_ANIMATION_MS = 150
+
 
 @dataclass(frozen=True)
 class TranslateConfig:
@@ -58,6 +62,7 @@ class AppConfig:
 
     language: str = i18n.DEFAULT_LANGUAGE
     theme: str = "light"
+    animation_ms: int = DEFAULT_ANIMATION_MS
     max_depth: int = MAX_EXPLORE_DEPTH
     max_entries: int = DEFAULT_MAX_ENTRIES
     translate_appid: str = ""
@@ -82,6 +87,7 @@ class AppConfig:
         return cls(
             language=i18n.normalize(data.get("language")),
             theme=normalize_theme(data.get("theme")),
+            animation_ms=clamp_animation(data.get("animation_ms")),
             max_depth=clamp_depth(navigation.get("max_depth")),
             max_entries=clamp_entries(navigation.get("max_entries")),
             translate_appid=str(translate.get("appid") or "").strip(),
@@ -93,6 +99,7 @@ class AppConfig:
         return {
             "language": self.language,
             "theme": self.theme,
+            "animation_ms": self.animation_ms,
             "navigation": {
                 "max_depth": self.max_depth,
                 "max_entries": self.max_entries,
@@ -331,3 +338,13 @@ def clamp_entries(value: Any) -> int:
     except (TypeError, ValueError):
         return DEFAULT_MAX_ENTRIES
     return max(low, min(count, high))
+
+
+def clamp_animation(value: Any) -> int:
+    """淡入淡出时长：缺省或读不出数字时回退默认值，0 是合法值（不做动画）。"""
+    low, high = ANIMATION_RANGE
+    try:
+        duration = int(str(value).strip())
+    except (TypeError, ValueError):
+        return DEFAULT_ANIMATION_MS
+    return max(low, min(duration, high))

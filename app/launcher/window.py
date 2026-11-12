@@ -23,22 +23,25 @@ from app import i18n
 from app.core.actions import Modifiers
 from app.launcher.controller import VISIBLE_ROWS, LauncherController
 from app.launcher.theme import LauncherTheme
+from app.settings import DEFAULT_ANIMATION_MS
 from app.system import shell, taskbar
 
 WINDOW_WIDTH = 600
 WINDOW_HEIGHT = 400
-SHOW_DURATION_MS = 100
-HIDE_DURATION_MS = 200
-#: 执行动作时的淡出：一样要看得出在淡出，但比「取消」更短促——这时候用户
-#: 已经决定了，多等一帧都是在拖慢他。
-LAUNCH_HIDE_DURATION_MS = 130
 
 
 class SearchWindow(QMainWindow):
-    def __init__(self, controller: LauncherController, appearance: LauncherTheme) -> None:
+    def __init__(
+        self,
+        controller: LauncherController,
+        appearance: LauncherTheme,
+        animation_ms: int = DEFAULT_ANIMATION_MS,
+    ) -> None:
         super().__init__()
         self._controller = controller
         self._appearance = appearance
+        # 淡入淡出各占多少毫秒。0 表示不做动画，由配置里的 animation_ms 决定。
+        self._animation_ms = max(0, int(animation_ms))
         self._rows: list = []
         self._selected = -1
         self._visible_start = 0
@@ -151,30 +154,29 @@ class SearchWindow(QMainWindow):
         self.activateWindow()
         self._search_input.setFocus()
 
-        self._animate(1.0, SHOW_DURATION_MS, self._on_shown)
+        self._animate(1.0, self._animation_ms, self._on_shown)
 
     def hide_window(self) -> None:
         """淡出收起：``Esc``、点到别处这类“取消”手势走这里。"""
         if self._showing or self._hiding:
             return
-        self._fade_out(HIDE_DURATION_MS)
+        self._fade_out()
 
     def hide_for_action(self) -> None:
-        """执行动作时的收起：短促淡出。
+        """执行动作时的收起。
 
-        这里不做「立刻消失」——淡出本身只要一百多毫秒，而真正会卡住界面的是
-        启动目标那一下（已经在工作线程里跑了，见 ``ActionRunner``）。所以照常
-        播动画，只是比 ``Esc`` 那条路更短：用户已经按下回车，没有理由再等。
-
-        淡入还没播完就按回车也要能收起，所以这里绕开了 ``_showing`` 那道闸。
+        和 ``Esc`` 用同一个时长：真正会卡住界面的是启动目标那一下（已经在工作
+        线程里跑了，见 ``ActionRunner``），淡出本身从来不是瓶颈，没必要为它单独
+        调一个更短的数。淡入还没播完就按回车也要能收起，所以这里绕开了
+        ``_showing`` 那道闸。
         """
         if not self.isVisible():
             return
         # 收起之后就不再是前台进程了，先把抢前台的权利让给马上要启动的程序。
         shell.allow_foreground()
-        self._fade_out(LAUNCH_HIDE_DURATION_MS)
+        self._fade_out()
 
-    def _fade_out(self, duration: int) -> None:
+    def _fade_out(self) -> None:
         if self._hiding or not self.isVisible():
             return
         # 进场动画可能还在跑，先停掉它，从当前不透明度接着淡出。
@@ -182,7 +184,7 @@ class SearchWindow(QMainWindow):
         self._showing = False
         self._hiding = True
         self._controller.end_session()
-        self._animate(0.0, duration, self._on_hidden)
+        self._animate(0.0, self._animation_ms, self._on_hidden)
 
     def _stop_animation(self) -> None:
         animation = self._animation
@@ -204,14 +206,21 @@ class SearchWindow(QMainWindow):
         taskbar.show()
 
     def _animate(self, target: float, duration: int, on_finished) -> None:
+        if duration <= 0:
+            # 配置把动画关掉时不要走 QPropertyAnimation：0 毫秒的动画会在 start()
+            # 里同步播完，回调比 self._animation 的赋值还早，容易留下悬空引用。
+            self.setWindowOpacity(target)
+            on_finished()
+            return
+
         animation = QPropertyAnimation(self, b"windowOpacity", self)
         animation.setDuration(duration)
         animation.setStartValue(self.windowOpacity())
         animation.setEndValue(target)
         animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
         animation.finished.connect(on_finished)
-        animation.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
         self._animation = animation
+        animation.start(QPropertyAnimation.DeletionPolicy.DeleteWhenStopped)
 
     # -- 渲染 -------------------------------------------------------------
     def _render(self, rows: list, selected: int, visible_start: int) -> None:

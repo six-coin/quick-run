@@ -205,6 +205,23 @@ def test_app_config_clamps_out_of_range_values(tmp_path):
     assert config.max_entries == 1
 
 
+def test_animation_duration_is_clamped(tmp_path):
+    target = tmp_path / "app.json"
+
+    target.write_text(json.dumps({"animation_ms": 9999}), encoding="utf-8")
+    assert settings.load_app_config(target).animation_ms == settings.ANIMATION_RANGE[1]
+
+    target.write_text(json.dumps({"animation_ms": -5}), encoding="utf-8")
+    assert settings.load_app_config(target).animation_ms == 0
+
+    target.write_text(json.dumps({"animation_ms": "abc"}), encoding="utf-8")
+    assert settings.load_app_config(target).animation_ms == settings.DEFAULT_ANIMATION_MS
+
+    # 缺这个键的老配置也要能读，落到默认值。
+    target.write_text(json.dumps({"language": "zh-CN"}), encoding="utf-8")
+    assert settings.load_app_config(target).animation_ms == settings.DEFAULT_ANIMATION_MS
+
+
 def test_translate_requires_both_fields():
     assert settings.AppConfig(translate_appid="a").translate is None
     assert settings.AppConfig(translate_secret="b").translate is None

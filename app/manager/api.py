@@ -90,6 +90,7 @@ class ManagerApi:
         return {
             "language": self._config.language,
             "theme": self._config.theme,
+            "animation_ms": self._config.animation_ms,
             "max_depth": self._config.max_depth,
             "max_entries": self._config.max_entries,
             "translate_appid": self._config.translate_appid,
@@ -104,6 +105,7 @@ class ManagerApi:
             ],
             "max_depth_limit": MAX_EXPLORE_DEPTH,
             "max_entries_range": list(settings_module.MAX_ENTRIES_RANGE),
+            "animation_range": list(settings_module.ANIMATION_RANGE),
         }
 
     # -- 选择 -------------------------------------------------------------
@@ -289,6 +291,8 @@ class ManagerApi:
             self._config.max_depth = settings_module.clamp_depth(patch["max_depth"])
         if "max_entries" in patch:
             self._config.max_entries = settings_module.clamp_entries(patch["max_entries"])
+        if "animation_ms" in patch:
+            self._config.animation_ms = settings_module.clamp_animation(patch["animation_ms"])
         if "translate_appid" in patch:
             self._config.translate_appid = str(patch["translate_appid"] or "").strip()
         if "translate_secret" in patch:

@@ -81,6 +81,19 @@ def test_state_does_not_advertise_a_default_group(monkeypatch):
     assert "default_group_name" not in state
 
 
+def test_update_settings_clamps_the_animation_duration(monkeypatch):
+    api = make_api(monkeypatch, [make_group("A", 1)])
+
+    api.update_settings({"animation_ms": 9999})
+    assert api.get_settings()["animation_ms"] == api_module.settings_module.ANIMATION_RANGE[1]
+
+    api.update_settings({"animation_ms": -1})
+    assert api.get_settings()["animation_ms"] == 0
+
+    api.update_settings({"animation_ms": 250})
+    assert api.get_settings()["animation_ms"] == 250
+
+
 def test_answer_close_confirm_releases_the_window(monkeypatch):
     api = make_api(monkeypatch, [make_group("A", 1)])
 
