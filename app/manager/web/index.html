@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quick Run 操作管理器</title>
+<title>快捷运行操作管理器</title>
 <script>
   // 首帧之前先把外观定下来，避免深色模式闪一下白。
   // 优先用上次记住的值，其次跟随系统；随后 get_state 会再校正一次。
@@ -27,7 +27,7 @@
   <aside class="sidebar">
     <header class="sidebar-head">
       <div class="titles">
-        <h1 data-i18n="manager.title">Quick Run 操作管理器</h1>
+        <h1 data-i18n="manager.title">快捷运行操作管理器</h1>
         <p id="count-label">0</p>
       </div>
       <div class="head-actions">
@@ -55,7 +55,7 @@
         <circle cx="6.8" cy="6.8" r="4.6"></circle>
         <path d="M10.4 10.4L14 14"></path>
       </svg>
-      <input id="filter" type="text" data-i18n-placeholder="manager.search" data-i18n-aria="manager.search" autocomplete="off" spellcheck="false">
+      <input id="filter" type="text" data-i18n-placeholder="manager.search" data-i18n-aria="manager.search" autocomplete="off" spellcheck="false" autofocus>
       <button type="button" id="filter-clear" class="search-clear hidden" data-i18n-title="manager.search_clear" data-i18n-aria="manager.search_clear">×</button>
     </div>
 

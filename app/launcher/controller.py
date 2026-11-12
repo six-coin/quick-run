@@ -11,11 +11,11 @@ from PySide6.QtCore import QObject, QTimer, Signal
 
 from app import i18n
 from app.core import calculator
-from app.core.actions import ActionExecutor, Modifiers
+from app.core.actions import ActionExecutor, ActionOutcome, Modifiers
 from app.core.resolver import PendingRequest, QueryResolver
 from app.core.rows import ResultRow, RowKind, RowStatus
 from app.errors import CalcError
-from app.launcher.tasks import TaskRunner
+from app.launcher.tasks import ActionRunner, TaskRunner
 
 #: 结果列表一次最多显示几行。
 VISIBLE_ROWS = 5
@@ -65,6 +65,9 @@ class LauncherController(QObject):
 
         self._tasks = TaskRunner(self)
         self._tasks.finished.connect(self._on_task_done)
+
+        self._actions = ActionRunner(self)
+        self._actions.finished.connect(self._on_action_done)
 
     # -- 会话 -------------------------------------------------------------
     def begin_session(self) -> None:
@@ -164,13 +167,17 @@ class LauncherController(QObject):
             self.hide_requested.emit()
             self._cancel_pending()
             self._generation += 1
+            # 真正的启动放到工作线程：ShellExecute 会等关联程序回应，慢的时候
+            # 一两秒才返回。占着界面线程，窗口就会僵在半透明之前的状态里。
+            self._actions.submit(lambda: self._executor.execute(row, modifiers))
+            return
 
         outcome = self._executor.execute(row, modifiers)
 
         if outcome.clipboard_text is not None:
             self._clipboard.copy(outcome.clipboard_text)
 
-        if outcome.hide and not hide_first:
+        if outcome.hide:
             self.hide_requested.emit()
             self._cancel_pending()
             self._generation += 1
@@ -243,6 +250,20 @@ class LauncherController(QObject):
             row.text = self._format_error(row.kind, payload)
 
         self.row_updated.emit(index, row.text)
+
+    def _on_action_done(self, outcome: ActionOutcome | None) -> None:
+        """工作线程把副作用做完了，回到界面线程收尾。
+
+        这里**故意**不再发 ``hide_requested``：窗口在提交动作之前就收起了，而且
+        动作可能跑上一两秒——那期间用户完全可能再次唤出启动器，这时补一个「收起」
+        会把新会话也一起关掉。
+
+        剪贴板必须回到界面线程写，所以结果还是要传回来。
+        """
+        if outcome is None:
+            return
+        if outcome.clipboard_text is not None:
+            self._clipboard.copy(outcome.clipboard_text)
 
     # -- 工具 -------------------------------------------------------------
     def _find(self, key: str) -> tuple[int, ResultRow] | None:

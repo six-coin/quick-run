@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import os
 import subprocess
 import sys
@@ -21,6 +22,24 @@ from app import paths
 
 CREATE_NO_WINDOW = 0x08000000
 CREATE_NEW_CONSOLE = 0x00000010
+
+#: ``AllowSetForegroundWindow`` 的「任意进程」参数
+ASFW_ANY = -1
+
+
+def allow_foreground() -> None:
+    """把「谁可以抢到前台」的权利让出去。
+
+    窗口一收起，启动器就不再是前台进程；按 Windows 的规则，这时它拉起来的
+    程序没有资格调用 ``SetForegroundWindow``，窗口会开在别的窗口后面。所以
+    在收起之前先放弃这份权利，目标程序才能正常出现在最前面。
+
+    调用方不是前台进程时这个调用会直接失败，那正是它该失败的时候。
+    """
+    try:
+        ctypes.windll.user32.AllowSetForegroundWindow(ASFW_ANY)
+    except Exception as error:  # 非 Windows 平台没有 windll，静默降级
+        logger.warning("让出前台权限时出错：{}", error)
 
 
 class WindowsOpener:

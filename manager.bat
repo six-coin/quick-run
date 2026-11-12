@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-rem 打开 Quick Run 操作管理器：在虚拟环境里运行 manager.pyw。
+rem 打开快捷运行操作管理器（Quick Run Manager）：在虚拟环境里运行 manager.pyw。
 setlocal
 cd /d "%~dp0"
 

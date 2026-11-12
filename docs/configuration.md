@@ -146,7 +146,7 @@
 ```json
 {
   "language.name": "简体中文 (中国)",
-  "manager.title": "Quick Run 操作管理器",
+  "manager.title": "快捷运行操作管理器",
   "manager.count": "{total} 项 · {groups} 组"
 }
 ```

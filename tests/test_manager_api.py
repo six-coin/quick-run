@@ -116,4 +116,4 @@ def test_set_language_retitles_the_window(monkeypatch):
     api.set_language("en-US")
     api.set_language("zh-CN")
 
-    assert window.titles == ["Quick Run Manager", "Quick Run 操作管理器"]
+    assert window.titles == ["Quick Run Manager", "快捷运行操作管理器"]

@@ -1,6 +1,6 @@
 # Quick Run User Manual
 
-A keyboard launcher for Windows: press `Alt+Space`, type a few letters, and open a file, a folder, a web page or run a command. The bundled **operation manager** maintains that list through a web UI.
+A keyboard launcher for Windows: press `Alt+Space`, type a few letters, and open a file, a folder, a web page or run a command. The bundled **Quick Run Manager** maintains that list through a web UI.
 
 [简体中文](zh-CN.md)
 
@@ -109,9 +109,9 @@ Appending a backtick `` ` `` to the query skips operation matching and keeps onl
 
 Translation and definition need credentials configured in the manager, see [4.4 Settings](#44-settings).
 
-## 4. Operation manager
+## 4. Quick Run Manager
 
-Open it with `manager.bat`. The group tree is on the left, the editor on the right. Edits go to memory immediately; press `Ctrl+S` or click “Save file” to write them to disk.
+Open it with `manager.bat`. The group tree is on the left, the editor on the right. Edits go to memory immediately; press `Ctrl+S` or click “Save file” to write them to disk. The search box has focus as soon as the window opens, so you can start typing straight away.
 
 ### 4.1 Groups
 

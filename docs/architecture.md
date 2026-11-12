@@ -7,7 +7,7 @@
 Quick Run 有两个独立进程：
 
 - **启动器**（`main.pyw`）：常驻后台，`Alt+Space` 唤出一个无边框搜索框，回车执行操作。
-- **操作管理器**（`manager.pyw`）：按需打开的网页界面，维护操作清单。
+- **快捷运行操作管理器**（Quick Run Manager，`manager.pyw`）：按需打开的网页界面，维护操作清单。
 
 两者共享同一份配置和同一套领域模型，但界面技术栈不同（Qt 与 WebView2），因此代码必须让「业务逻辑」与「界面」彻底分离，否则任何一处改动都要写两遍。
 
@@ -56,7 +56,7 @@ app/
 │  ├─ app.py                 组装根
 │  ├─ controller.py          交互状态机
 │  ├─ window.py              视图
-│  ├─ tasks.py               后台任务与代次
+│  ├─ tasks.py               后台任务、动作执行与代次
 │  └─ theme.py               两套 Qt 样式表
 └─ manager/                  pywebview 管理器
    ├─ app.py                 组装根与关闭拦截
@@ -165,6 +165,19 @@ setup 日志
 
 返回值 `ActionOutcome(hide, clipboard_text)` 让「要不要收起窗口」和「复制什么」变成纯数据，窗口只负责执行这两个动作。
 
+打开文件、网址、朗读这几类动作**不在界面线程上跑**。它们最终都落到 `ShellExecuteW` 或网络请求上，而 `ShellExecuteW` 要等到关联程序回应才返回：浏览器走 DDE 要等握手，慢的 exe 还要先被安全软件扫一遍。这段时间如果占着界面线程，窗口就僵在满不透明的状态，用户看到的是「按了回车没反应」。所以顺序是：
+
+```
+控制器：先发 hide_requested（窗口开始淡出）
+      → ActionRunner 把执行丢进线程池
+      → 工作线程跑完，ActionOutcome 通过信号回到界面线程
+      → 界面线程只做「复制到剪贴板」这类不能跨线程的动作
+```
+
+窗口动画没有被取消，只是**不再是卡顿的来源**。执行动作走 `hide_for_action`，淡出 130ms；`Esc` 和失去焦点走 `hide_window`，淡出 200ms。两条路都只是「取消得快一点还是慢一点」的差别——真正决定手感的是界面线程有没有被占住。
+
+收起之前会调用一次 `AllowSetForegroundWindow`：窗口一没，启动器就不再是前台进程，按 Windows 的规则它拉起来的程序没有资格抢前台，新窗口会开在别的窗口后面。把这份权利先让出去，目标程序才能正常出现在最前面。
+
 ### 5.4 异步任务与代次
 
 `LauncherController` 每次查询变化都会把 `_generation` 加一。`TaskRunner` 把任务丢进 `QThreadPool`，回包时带上提交时的代次；控制器只接受与当前代次相同的回包，其余直接丢弃。
@@ -223,7 +236,7 @@ closing 回调（UI 线程）
 |---|---|---|
 | Qt 主线程 | 启动器 | 全部界面操作、窗口动画、结果渲染 |
 | 热键线程 | `HotkeyListener` | `RegisterHotKey` + `GetMessage` 循环，只发信号 |
-| 线程池 | `QThreadPool` | 计算、翻译、查词，结果通过信号回到主线程 |
+| 线程池 | `QThreadPool` | 计算、翻译、查词、执行动作，结果通过信号回到主线程 |
 | pywebview UI 线程 | 管理器 | 窗口消息循环 |
 | js_api 线程 | 管理器 | 每次网页调用一个线程，执行 `ManagerApi` 方法 |
 | 关闭提示线程 | 管理器 | 只做一次 `evaluate_js`，随后退出 |

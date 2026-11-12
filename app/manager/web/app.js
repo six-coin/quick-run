@@ -1514,11 +1514,26 @@
   };
 
   // -- 启动 ---------------------------------------------------------------
+  /**
+   * 打开窗口就把光标放进搜索框。
+   *
+   * 管理器一打开，十有八九是要找一条操作；让人先点一下搜索框纯属多余。
+   * 有校验错误时不抢焦点——那时焦点已经被送到出错的字段上了。
+   */
+  function focusSearch() {
+    if (state.data && state.data.errors && state.data.errors.length) return;
+    const input = $('filter');
+    if (!input) return;
+    input.focus();
+    input.select();
+  }
+
   async function init() {
     bind();
     await loadStrings();
     applyStrings();
     apply(await call('get_state'));
+    focusSearch();
   }
 
   if (bridge()) {

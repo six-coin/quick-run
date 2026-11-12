@@ -23,12 +23,15 @@ from app import i18n
 from app.core.actions import Modifiers
 from app.launcher.controller import VISIBLE_ROWS, LauncherController
 from app.launcher.theme import LauncherTheme
-from app.system import taskbar
+from app.system import shell, taskbar
 
 WINDOW_WIDTH = 600
 WINDOW_HEIGHT = 400
 SHOW_DURATION_MS = 100
 HIDE_DURATION_MS = 200
+#: 执行动作时的淡出：一样要看得出在淡出，但比「取消」更短促——这时候用户
+#: 已经决定了，多等一帧都是在拖慢他。
+LAUNCH_HIDE_DURATION_MS = 130
 
 
 class SearchWindow(QMainWindow):
@@ -114,7 +117,8 @@ class SearchWindow(QMainWindow):
 
         self._controller.rows_changed.connect(self._render)
         self._controller.row_updated.connect(self._update_row)
-        self._controller.hide_requested.connect(self.hide_window)
+        # 执行动作时也要淡出，只是更短促；真正会卡的是启动目标，不是这段动画。
+        self._controller.hide_requested.connect(self.hide_for_action)
         self._controller.history_text.connect(self._apply_history_text)
 
     def _adjust_geometry(self) -> None:
@@ -150,13 +154,45 @@ class SearchWindow(QMainWindow):
         self._animate(1.0, SHOW_DURATION_MS, self._on_shown)
 
     def hide_window(self) -> None:
+        """淡出收起：``Esc``、点到别处这类“取消”手势走这里。"""
         if self._showing or self._hiding:
             return
+        self._fade_out(HIDE_DURATION_MS)
+
+    def hide_for_action(self) -> None:
+        """执行动作时的收起：短促淡出。
+
+        这里不做「立刻消失」——淡出本身只要一百多毫秒，而真正会卡住界面的是
+        启动目标那一下（已经在工作线程里跑了，见 ``ActionRunner``）。所以照常
+        播动画，只是比 ``Esc`` 那条路更短：用户已经按下回车，没有理由再等。
+
+        淡入还没播完就按回车也要能收起，所以这里绕开了 ``_showing`` 那道闸。
+        """
         if not self.isVisible():
             return
+        # 收起之后就不再是前台进程了，先把抢前台的权利让给马上要启动的程序。
+        shell.allow_foreground()
+        self._fade_out(LAUNCH_HIDE_DURATION_MS)
+
+    def _fade_out(self, duration: int) -> None:
+        if self._hiding or not self.isVisible():
+            return
+        # 进场动画可能还在跑，先停掉它，从当前不透明度接着淡出。
+        self._stop_animation()
+        self._showing = False
         self._hiding = True
         self._controller.end_session()
-        self._animate(0.0, HIDE_DURATION_MS, self._on_hidden)
+        self._animate(0.0, duration, self._on_hidden)
+
+    def _stop_animation(self) -> None:
+        animation = self._animation
+        self._animation = None
+        if animation is None:
+            return
+        try:
+            animation.stop()  # DeleteWhenStopped：停下即销毁
+        except RuntimeError:
+            pass  # 已经自然播完并被回收了
 
     # -- 动画回调 ---------------------------------------------------------
     def _on_shown(self) -> None:
