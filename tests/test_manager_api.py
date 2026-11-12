@@ -95,3 +95,25 @@ def test_answer_close_cancel_keeps_editing(monkeypatch):
     api.answer_close("cancel")
 
     assert api.close_confirmed is False
+
+
+class _FakeWindow:
+    """只记录标题，不建真窗口。"""
+
+    def __init__(self) -> None:
+        self.titles: list[str] = []
+
+    def set_title(self, title: str) -> None:
+        self.titles.append(title)
+
+
+def test_set_language_retitles_the_window(monkeypatch):
+    """窗口标题要跟着界面语言走，不能停在启动时那一种。"""
+    api = make_api(monkeypatch, [make_group("A", 1)])
+    window = _FakeWindow()
+    api.attach(window)
+
+    api.set_language("en-US")
+    api.set_language("zh-CN")
+
+    assert window.titles == ["Quick Run Manager", "Quick Run 操作管理器"]

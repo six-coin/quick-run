@@ -57,6 +57,19 @@ class ManagerApi:
     def attach(self, window) -> None:
         self._window = window
 
+    def _retitle(self) -> None:
+        """窗口标题跟着界面语言走。
+
+        老版本 pywebview 没有 ``set_title``，改标题失败也绝不能影响语言切换
+        本身，所以这里兜住一切异常。
+        """
+        if self._window is None:
+            return
+        try:
+            self._window.set_title(i18n.t("manager.title"))
+        except Exception as error:
+            logger.debug("修改窗口标题失败：{}", error)
+
     @property
     def dirty(self) -> bool:
         return self._dirty
@@ -259,6 +272,7 @@ class ManagerApi:
         language = i18n.set_language(value)
         self._config.language = language
         self._persist_config()
+        self._retitle()
         return self._state()
 
     def set_theme(self, value: str) -> dict[str, Any]:
