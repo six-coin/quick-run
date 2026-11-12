@@ -23,7 +23,7 @@ from app import i18n
 from app.core.actions import Modifiers
 from app.launcher.controller import VISIBLE_ROWS, LauncherController
 from app.launcher.theme import LauncherTheme
-from app.settings import DEFAULT_ANIMATION_MS
+from app.settings import DEFAULT_ANIMATION_IN_MS, DEFAULT_ANIMATION_OUT_MS
 from app.system import shell, taskbar
 
 WINDOW_WIDTH = 600
@@ -35,13 +35,15 @@ class SearchWindow(QMainWindow):
         self,
         controller: LauncherController,
         appearance: LauncherTheme,
-        animation_ms: int = DEFAULT_ANIMATION_MS,
+        fade_in_ms: int = DEFAULT_ANIMATION_IN_MS,
+        fade_out_ms: int = DEFAULT_ANIMATION_OUT_MS,
     ) -> None:
         super().__init__()
         self._controller = controller
         self._appearance = appearance
-        # 淡入淡出各占多少毫秒。0 表示不做动画，由配置里的 animation_ms 决定。
-        self._animation_ms = max(0, int(animation_ms))
+        # 淡入和淡出各占多少毫秒，0 表示不做动画，由配置里的 animation 决定。
+        self._fade_in_ms = max(0, int(fade_in_ms))
+        self._fade_out_ms = max(0, int(fade_out_ms))
         self._rows: list = []
         self._selected = -1
         self._visible_start = 0
@@ -154,7 +156,7 @@ class SearchWindow(QMainWindow):
         self.activateWindow()
         self._search_input.setFocus()
 
-        self._animate(1.0, self._animation_ms, self._on_shown)
+        self._animate(1.0, self._fade_in_ms, self._on_shown)
 
     def hide_window(self) -> None:
         """淡出收起：``Esc``、点到别处这类“取消”手势走这里。"""
@@ -184,7 +186,7 @@ class SearchWindow(QMainWindow):
         self._showing = False
         self._hiding = True
         self._controller.end_session()
-        self._animate(0.0, self._animation_ms, self._on_hidden)
+        self._animate(0.0, self._fade_out_ms, self._on_hidden)
 
     def _stop_animation(self) -> None:
         animation = self._animation

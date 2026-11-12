@@ -1052,7 +1052,8 @@
 
     $('set-depth').value = String(settings.max_depth);
     $('set-entries').value = String(settings.max_entries);
-    $('set-animation').value = String(settings.animation_ms);
+    $('set-animation-in').value = String(settings.animation_in_ms);
+    $('set-animation-out').value = String(settings.animation_out_ms);
     $('set-appid').value = settings.translate_appid || '';
     $('set-secret').value = settings.translate_secret || '';
     $('set-ai').value = settings.ai_api_key || '';
@@ -1080,19 +1081,54 @@
     renderSettings();
   }
 
+  /** 数字类设置的合法区间，由 get_settings 提供，和后端用的是同一组常量。 */
+  function settingRange(key) {
+    const settings = state.settings;
+    if (!settings) return null;
+    if (key === 'max_depth') return [0, settings.max_depth_limit];
+    if (key === 'max_entries') return settings.max_entries_range;
+    if (key === 'animation_in_ms' || key === 'animation_out_ms') return settings.animation_range;
+    return null;
+  }
+
+  function clampSetting(key, value) {
+    const range = settingRange(key);
+    if (!range) return value;
+    return Math.min(Math.max(value, range[0]), range[1]);
+  }
+
   function bindSettingInput(id, key, numeric) {
     $(id).addEventListener('input', function (event) {
-      const raw = event.target.value;
+      const input = event.target;
+      const raw = input.value;
       queue(
         'settings:' + key,
         async function () {
+          let value = raw;
+          if (numeric) {
+            const text = String(raw).trim();
+            const parsed = Number(text);
+            // 空串或非数字：不写盘，把输入框拉回已保存的值。
+            if (!text || !Number.isFinite(parsed)) {
+              if (state.settings && input.value === raw) {
+                input.value = String(state.settings[key]);
+              }
+              return;
+            }
+            // 超界直接夹回区间，输入框跟着变成真正生效的值。
+            value = clampSetting(key, Math.round(parsed));
+          }
           const patch = {};
-          patch[key] = numeric ? Number(raw) || 0 : raw;
+          patch[key] = value;
           const data = await call('update_settings', patch);
           if (!data) return;
           if (state.data) state.data.navigation = data.navigation;
           renderDepthHint();
-          if (state.settings) state.settings[key] = patch[key];
+          if (state.settings) state.settings[key] = value;
+          // 只改自己刚提交的那份内容：期间用户接着打字就别去动他的输入框。
+          if (numeric && input.value === raw && raw !== String(value)) {
+            input.value = String(value);
+          }
         },
         500
       );
@@ -1328,7 +1364,8 @@
     });
     bindSettingInput('set-depth', 'max_depth', true);
     bindSettingInput('set-entries', 'max_entries', true);
-    bindSettingInput('set-animation', 'animation_ms', true);
+    bindSettingInput('set-animation-in', 'animation_in_ms', true);
+    bindSettingInput('set-animation-out', 'animation_out_ms', true);
     bindSettingInput('set-appid', 'translate_appid', false);
     bindSettingInput('set-secret', 'translate_secret', false);
     bindSettingInput('set-ai', 'ai_api_key', false);

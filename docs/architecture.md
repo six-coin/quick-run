@@ -126,7 +126,8 @@ setup 日志
   → QueryResolver(catalog, navigator, ai_key, translate_enabled)
   → QApplication
   → LauncherController(resolver, executor, clipboard, translator, definition)
-  → SearchWindow(controller, theme.for_theme(config.theme), config.animation_ms)
+  → SearchWindow(controller, theme.for_theme(config.theme),
+                 fade_in_ms=config.animation_in_ms, fade_out_ms=config.animation_out_ms)
   → HotkeyListener(bridge.triggered.emit)   独立线程注册 Alt+Space
   → app.exec()
 ```
@@ -174,7 +175,7 @@ setup 日志
       → 界面线程只做「复制到剪贴板」这类不能跨线程的动作
 ```
 
-窗口动画没有被取消，只是**不再是卡顿的来源**。`hide_for_action`（执行动作）和 `hide_window`（`Esc`、失去焦点）走同一条淡出，时长都取自配置里的 `animation_ms`——动画快慢是用户偏好，不是性能开关；真正决定手感的是界面线程有没有被占住。
+窗口动画没有被取消，只是**不再是卡顿的来源**。`hide_for_action`（执行动作）和 `hide_window`（`Esc`、失去焦点）走同一条淡出，时长取自配置里的 `animation.out_ms`，淡入则用 `animation.in_ms`——动画快慢是用户偏好，不是性能开关；真正决定手感的是界面线程有没有被占住。
 
 收起之前会调用一次 `AllowSetForegroundWindow`：窗口一没，启动器就不再是前台进程，按 Windows 的规则它拉起来的程序没有资格抢前台，新窗口会开在别的窗口后面。把这份权利先让出去，目标程序才能正常出现在最前面。
 

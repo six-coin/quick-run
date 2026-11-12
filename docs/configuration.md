@@ -12,7 +12,10 @@
 {
   "language": "zh-CN",
   "theme": "light",
-  "animation_ms": 150,
+  "animation": {
+    "in_ms": 150,
+    "out_ms": 150
+  },
   "navigation": {
     "max_depth": 5,
     "max_entries": 100
@@ -31,7 +34,8 @@
 |---|---|---|---|
 | `language` | 字符串 | `"zh-CN"` | `app/locales` 下已有的语言代码；其他值回退 `zh-CN` |
 | `theme` | 字符串 | 系统偏好 | `light` / `dark`；其他值回退 `light` |
-| `animation_ms` | 整数 | `150` | 0–1000，越界夹取；0 表示不做动画；非数字回退 150 |
+| `animation.in_ms` | 整数 | `150` | 0–1000，越界夹取；0 表示不做动画；非数字回退 150 |
+| `animation.out_ms` | 整数 | `150` | 同上，管收起时的淡出 |
 | `navigation.max_depth` | 整数 | `5` | 0–5，越界夹取；非数字回退 5 |
 | `navigation.max_entries` | 整数 | `100` | 1–10000，越界夹取；非数字回退 100 |
 | `translate.appid` | 字符串 | `""` | 与 `secret_key` 同时非空才启用翻译 |
@@ -41,7 +45,7 @@
 说明：
 
 - `theme` 只在**文件不存在**时读取一次系统偏好写入；之后无论系统怎么变都以文件为准。
-- `animation_ms` 同时管淡入和淡出：弹出、按 `Esc` 收起、回车执行后收起都用这个时长。它只在启动器启动时读一次，改完要重启 `main.bat`。
+- `animation.in_ms` 管弹出时的淡入，`animation.out_ms` 管收起时的淡出（`Esc`、失去焦点、回车执行后都算）。两者都只在启动器启动时读一次，改完要重启 `main.bat`。
 - `max_depth` 是全局上限。单条文件夹操作自己还有一个「探索深度」，实际生效的是两者中较小的那个。
 - `max_entries` 控制单个目录的条目上限，超过就不展开，避免大目录卡住界面。
 - 字符串字段在读取时会 `strip()`，避免手改文件时留下的空格导致「看起来填了其实没填」。

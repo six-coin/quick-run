@@ -89,7 +89,8 @@ def _run() -> None:
     window = SearchWindow(
         controller,
         theme.for_theme(settings.config.theme),
-        settings.config.animation_ms,
+        fade_in_ms=settings.config.animation_in_ms,
+        fade_out_ms=settings.config.animation_out_ms,
     )
 
     bridge = _HotkeyBridge()

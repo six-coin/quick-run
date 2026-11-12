@@ -162,6 +162,7 @@ def test_app_config_is_created_with_system_theme(tmp_path, monkeypatch):
     payload = json.loads(target.read_text(encoding="utf-8"))
     assert payload["theme"] == "dark"
     assert payload["language"] == "zh-CN"
+    assert payload["animation"] == {"in_ms": 150, "out_ms": 150}
     assert payload["navigation"] == {"max_depth": 5, "max_entries": 100}
 
 
@@ -205,21 +206,28 @@ def test_app_config_clamps_out_of_range_values(tmp_path):
     assert config.max_entries == 1
 
 
-def test_animation_duration_is_clamped(tmp_path):
+def test_animation_durations_are_clamped(tmp_path):
     target = tmp_path / "app.json"
 
-    target.write_text(json.dumps({"animation_ms": 9999}), encoding="utf-8")
-    assert settings.load_app_config(target).animation_ms == settings.ANIMATION_RANGE[1]
+    target.write_text(
+        json.dumps({"animation": {"in_ms": 9999, "out_ms": -5}}), encoding="utf-8"
+    )
+    config = settings.load_app_config(target)
+    assert config.animation_in_ms == settings.ANIMATION_RANGE[1]
+    assert config.animation_out_ms == 0
 
-    target.write_text(json.dumps({"animation_ms": -5}), encoding="utf-8")
-    assert settings.load_app_config(target).animation_ms == 0
-
-    target.write_text(json.dumps({"animation_ms": "abc"}), encoding="utf-8")
-    assert settings.load_app_config(target).animation_ms == settings.DEFAULT_ANIMATION_MS
+    target.write_text(
+        json.dumps({"animation": {"in_ms": "abc", "out_ms": None}}), encoding="utf-8"
+    )
+    config = settings.load_app_config(target)
+    assert config.animation_in_ms == settings.DEFAULT_ANIMATION_IN_MS
+    assert config.animation_out_ms == settings.DEFAULT_ANIMATION_OUT_MS
 
     # 缺这个键的老配置也要能读，落到默认值。
     target.write_text(json.dumps({"language": "zh-CN"}), encoding="utf-8")
-    assert settings.load_app_config(target).animation_ms == settings.DEFAULT_ANIMATION_MS
+    config = settings.load_app_config(target)
+    assert config.animation_in_ms == settings.DEFAULT_ANIMATION_IN_MS
+    assert config.animation_out_ms == settings.DEFAULT_ANIMATION_OUT_MS
 
 
 def test_translate_requires_both_fields():
