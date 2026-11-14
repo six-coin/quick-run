@@ -101,7 +101,7 @@ app/
 
 | 模块 | 职责 | 不做什么 |
 |---|---|---|
-| `paths` | 计算所有路径；把配置里的相对路径按程序目录解析 | 不判断文件是否存在 |
+| `paths` | 计算所有路径；按操作的路径基准补全用户填的路径 | 不判断文件是否存在 |
 | `settings` | 读写两个 JSON、校验结构、夹取数值范围 | 不缓存，不持有界面状态 |
 | `models` | 数据结构、类型常量、字段校验、写盘前归一化 | 不读写文件 |
 | `i18n` | 扫描语言目录、按语言查表、填充占位符 | 不关心调用者是谁 |
@@ -205,6 +205,7 @@ setup 日志
   "errors": [{ "group": 0, "index": 1, "field": "keywords", "label": "匹配字串" }],
   "types": [...],
   "debug_functions": [...],
+  "path_bases": [...],
   "language": "zh-CN",
   "theme": "light",
   "navigation": { "max_depth": 5, "max_entries": 100 }
@@ -272,10 +273,10 @@ closing 回调（UI 线程）
 | 本地目录 | `logs/`、`locks/`、`data-dir.txt` | `%LOCALAPPDATA%\six-coin\quick-run` |
 | 临时目录 | 可随时丢弃的中间文件 | `%TEMP%\six-coin\quick-run` |
 
-- 配置里的相对路径（如 `custom\clear_clipboard.py`）以**数据目录**为基准解析，与进程 cwd 无关；换盘符不会失效。
+- 配置里的相对路径按每条操作自己的 `base` 解析：`data`（数据目录）、`program`（程序目录，默认）、`absolute`（不补全）。解析只发生在执行时，与进程 cwd 无关；换盘符不会失效。
 - 数据目录可在设置里改，指针写在本地目录的 `data-dir.txt`，重启后生效。
 - 数据目录的落点恒以项目代号结尾（`D://Data` → `D://Data//quick-run`），`paths.normalize_data_dir()` 负责补齐；换目录时先写 `data-dir.pending`，下次启动把旧内容搬过去再改指针。
-- 启动子进程时，工作目录用参数传递：`subprocess.Popen(..., cwd=...)`、`os.startfile(path, cwd=...)`、`ShellExecuteW(..., lpDirectory=...)`。
+- 启动子进程时，工作目录一律是程序目录：`subprocess.Popen(..., cwd=PROGRAM_DIR)`、`os.startfile(path, cwd=PROGRAM_DIR)`、`ShellExecuteW(..., lpDirectory=...)`。目标文件在哪个目录与 cwd 无关，路径靠 `base` 补全。
 - 日志与配置永远写绝对路径。
 
 `test_no_chdir_anywhere` 会扫描 `app/` 下所有文件，出现任何 `chdir` 调用即失败。

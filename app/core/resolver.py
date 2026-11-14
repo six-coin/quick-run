@@ -98,7 +98,9 @@ class QueryResolver:
             operation = self._explore_target(head)
             raw_root = str(operation.arguments.get("dir", "")).strip() if operation else ""
             if operation is not None and raw_root:
-                root = paths.resolve_user_path(raw_root)
+                root = paths.resolve_user_path(
+                    raw_root, paths.normalize_path_base(operation.arguments.get("base"))
+                )
                 if self._navigator.can_explore(root):
                     result = self._navigator.navigate(root, nav_text, operation.explore_depth())
                     if result.error:

@@ -23,13 +23,36 @@ def test_config_paths_are_absolute():
         assert path.is_absolute()
 
 
-def test_relative_user_path_anchors_at_the_data_dir():
-    resolved = paths.resolve_user_path(r"custom\clear_clipboard.py")
+def test_relative_path_defaults_to_the_program_dir():
+    """没写路径基准时按程序目录补全：.bat 与脚本都在那里。"""
+    resolved = paths.resolve_user_path(r"scripts\clear_clipboard.py")
+    assert resolved == (paths.PROGRAM_DIR / r"scripts\clear_clipboard.py").resolve()
+
+
+def test_relative_path_can_anchor_at_the_data_dir():
+    resolved = paths.resolve_user_path(r"custom\clear_clipboard.py", paths.PathBase.DATA)
     assert resolved == (paths.DATA_DIR / r"custom\clear_clipboard.py").resolve()
+
+
+def test_relative_path_can_anchor_at_the_program_dir():
+    resolved = paths.resolve_user_path("manager.bat", paths.PathBase.PROGRAM)
+    assert resolved == (paths.PROGRAM_DIR / "manager.bat").resolve()
+
+
+def test_absolute_paths_ignore_the_base():
+    """写全了的路径选哪种基准都指向同一个文件。"""
+    for base in paths.PATH_BASE_VALUES:
+        assert paths.resolve_user_path(r"D:\Tools\x.exe", base) == Path(r"D:\Tools\x.exe")
 
 
 def test_absolute_user_path_is_untouched():
     assert paths.resolve_user_path(r"D:\Tools\x.exe") == Path(r"D:\Tools\x.exe")
+
+
+def test_unknown_base_falls_back_to_the_default():
+    assert paths.normalize_path_base("nonsense") == paths.DEFAULT_PATH_BASE
+    assert paths.normalize_path_base(None) == paths.DEFAULT_PATH_BASE
+    assert paths.normalize_path_base("DATA") == paths.PathBase.DATA
 
 
 def test_quotes_and_empty_values():
@@ -41,6 +64,14 @@ def test_split_paths():
     parts = paths.split_paths(r"C:\a|D:\b")
     assert [str(part) for part in parts] == [r"C:\a", r"D:\b"]
     assert paths.split_paths("") == []
+
+
+def test_split_paths_uses_the_same_base_for_every_part():
+    parts = paths.split_paths("a.bat|b.bat", paths.PathBase.PROGRAM)
+    assert parts == [
+        (paths.PROGRAM_DIR / "a.bat").resolve(),
+        (paths.PROGRAM_DIR / "b.bat").resolve(),
+    ]
 
 
 def test_data_dir_pointer_round_trips(tmp_path, monkeypatch):

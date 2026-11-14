@@ -101,18 +101,21 @@ class ActionExecutor:
 
     def _open_files(self, operation: Operation, modifiers: Modifiers) -> None:
         no_window = bool(operation.arguments.get("no_window", False))
-        for path in paths.split_paths(str(operation.arguments.get("path", ""))):
+        base = paths.normalize_path_base(operation.arguments.get("base"))
+        for path in paths.split_paths(str(operation.arguments.get("path", "")), base):
             if modifiers.any:
                 # 按住 Ctrl / Shift / Alt 时改成打开所在文件夹。
                 self._opener.open_dir(path.parent)
                 continue
             if path.is_file():
-                self._opener.open_file(path, cwd=path.parent, no_window=no_window)
+                # 工作目录恒为程序目录，不跟着目标文件走。
+                self._opener.open_file(path, cwd=paths.PROGRAM_DIR, no_window=no_window)
             else:
                 logger.warning("打开文件 {} 时出错：文件不存在或不是文件", path)
 
     def _open_dirs(self, operation: Operation) -> None:
-        for path in paths.split_paths(str(operation.arguments.get("dir", ""))):
+        base = paths.normalize_path_base(operation.arguments.get("base"))
+        for path in paths.split_paths(str(operation.arguments.get("dir", "")), base):
             if path.is_dir():
                 self._opener.open_dir(path)
             else:
@@ -128,7 +131,7 @@ class ActionExecutor:
         if entry.is_dir:
             self._opener.open_dir(entry.path)
         else:
-            self._opener.open_file(entry.path, cwd=entry.path.parent, no_window=False)
+            self._opener.open_file(entry.path, cwd=paths.PROGRAM_DIR, no_window=False)
         return ActionOutcome(hide=True)
 
     def _copyable(self, row: ResultRow, _modifiers: Modifiers) -> ActionOutcome:

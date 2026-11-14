@@ -275,18 +275,52 @@ def test_validation_reports_group_and_index():
     assert validate_groups(groups) == FieldError(0, 0, "path")
 
 
-def test_change_type_carries_path():
+def test_reading_an_operation_fills_and_repairs_the_path_base():
+    """旧配置没有 base，手改写错的 base 在读取时就收敛成默认值。"""
+    missing = Operation.from_dict(
+        {"display": "A", "type": "file", "keywords": "a", "arguments": {"path": "a.bat"}}
+    )
+    assert missing.arguments["base"] == "program"
+
+    stale = Operation.from_dict(
+        {
+            "display": "B",
+            "type": "dir",
+            "keywords": "b",
+            "arguments": {"dir": "custom", "base": "home"},
+        }
+    )
+    assert stale.arguments["base"] == "program"
+
+
+def test_normalize_repairs_an_unknown_path_base():
+    operation = Operation(
+        type="file", arguments={"path": "a.bat", "base": "nonsense"}, keywords="a"
+    )
+    operation.normalize()
+
+    assert operation.arguments["base"] == "program"
+
+
+def test_change_type_carries_path_and_base():
     operation = Operation(
         type="dir",
-        arguments={"dir": r"C:\x", "allow_explore": False, "explore_depth": 1},
+        arguments={
+            "dir": r"C:\x",
+            "base": "data",
+            "allow_explore": False,
+            "explore_depth": 1,
+        },
         keywords="d",
     )
     operation.change_type("file")
     assert operation.type == "file"
     assert operation.arguments["path"] == r"C:\x"
+    assert operation.arguments["base"] == "data"
 
     operation.change_type("dir")
     assert operation.arguments["dir"] == r"C:\x"
+    assert operation.arguments["base"] == "data"
 
 
 # -- 匹配字串清理 ---------------------------------------------------------
@@ -327,12 +361,13 @@ def test_default_operations_template():
 
     manager = operations[0]
     assert manager["type"] == "file"
-    assert manager["arguments"] == {"path": "manager.bat", "no_window": True}
+    assert manager["arguments"] == {"path": "manager.bat", "base": "program", "no_window": True}
 
     program_folder = operations[1]
     assert program_folder["type"] == "dir"
     assert program_folder["arguments"] == {
         "dir": ".",
+        "base": "program",
         "allow_explore": False,
         "explore_depth": 0,
     }

@@ -155,6 +155,17 @@
 
         <div class="arg-panel" data-type="file">
           <div class="field">
+            <label data-i18n="manager.path_base">路径基准</label>
+            <div id="f-base-file" class="select" data-value="program" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox" data-i18n-aria="manager.path_base">
+              <span class="select-value">—</span>
+              <svg class="select-arrow" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.5 4.5L6 8l3.5-3.5"></path>
+              </svg>
+              <div class="select-menu" role="listbox"></div>
+            </div>
+            <p class="hint" data-i18n="manager.path_base_hint"></p>
+          </div>
+          <div class="field">
             <label for="f-path" data-i18n="manager.path">文件路径</label>
             <div class="inline">
               <input id="f-path" data-arg="path" type="text" placeholder="C:\Program Files\App\app.exe" spellcheck="false">
@@ -170,6 +181,17 @@
         </div>
 
         <div class="arg-panel" data-type="dir">
+          <div class="field">
+            <label data-i18n="manager.path_base">路径基准</label>
+            <div id="f-base-dir" class="select" data-value="program" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox" data-i18n-aria="manager.path_base">
+              <span class="select-value">—</span>
+              <svg class="select-arrow" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.5 4.5L6 8l3.5-3.5"></path>
+              </svg>
+              <div class="select-menu" role="listbox"></div>
+            </div>
+            <p class="hint" data-i18n="manager.path_base_hint"></p>
+          </div>
           <div class="field">
             <label for="f-dir" data-i18n="manager.dir">文件夹路径</label>
             <div class="inline">
@@ -207,7 +229,7 @@
         <div class="arg-panel" data-type="debug">
           <div class="field">
             <label data-i18n="manager.debug_function">调试功能</label>
-            <div id="f-function" class="select" data-value="restart" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+            <div id="f-function" class="select" data-value="restart" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox" data-i18n-aria="manager.debug_function">
               <span class="select-value">—</span>
               <svg class="select-arrow" viewBox="0 0 12 12" aria-hidden="true">
                 <path d="M2.5 4.5L6 8l3.5-3.5"></path>
@@ -265,7 +287,7 @@
 </div>
 
 <div id="modal-settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-  <div class="modal-card narrow" tabindex="-1">
+  <div class="modal-card settings-card" tabindex="-1">
     <header class="modal-head">
       <h2 id="settings-title" data-i18n="settings.title">设置</h2>
       <button type="button" class="icon-btn" data-close="modal-settings" data-i18n-title="settings.done">×</button>
@@ -348,29 +370,25 @@
       </section>
 
       <section class="settings-section">
-        <h3 data-i18n="about.title">关于</h3>
-
-        <div class="about-row">
-          <div class="about-main">
-            <span class="about-label" data-i18n="about.data_dir">数据目录</span>
-            <p class="hint" id="about-data-hint"></p>
-          </div>
-          <div class="about-control">
-            <input type="text" id="about-data-dir" spellcheck="false" autocomplete="off">
-            <button type="button" class="btn" id="btn-about-data-dir" data-i18n="about.data_dir_change">更改</button>
-            <button type="button" class="btn" id="btn-about-data-reset" data-i18n="about.data_dir_reset">重置</button>
-          </div>
+        <h3 data-i18n="about.data_dir">数据目录</h3>
+        <div class="inline">
+          <input type="text" id="about-data-dir" spellcheck="false" autocomplete="off">
+          <button type="button" class="btn" id="btn-about-data-dir" data-i18n="about.data_dir_change">更改</button>
+          <button type="button" class="btn" id="btn-about-data-reset" data-i18n="about.data_dir_reset">重置</button>
         </div>
+        <p class="hint" id="about-data-hint"></p>
+      </section>
 
-        <div class="about-row">
-          <div class="about-main">
+      <section class="settings-section">
+        <div class="about-line">
+          <div class="about-line-text">
             <span class="about-label" data-i18n="about.readme">使用说明</span>
             <p class="hint" data-i18n="about.readme_hint"></p>
           </div>
-          <button type="button" class="btn about-large" id="btn-about-readme" data-i18n="about.readme">使用说明</button>
+          <button type="button" class="btn" id="btn-about-readme" data-i18n="about.readme_open">打开</button>
         </div>
 
-        <div class="about-row">
+        <div class="about-line">
           <span class="about-label" data-i18n="about.version">版本</span>
           <span class="about-value" id="about-version"></span>
         </div>

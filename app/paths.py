@@ -23,9 +23,28 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Any
 
 VENDOR = "six-coin"
 PROJECT = "quick-run"
+
+
+class PathBase:
+    """操作里「路径基准」的取值，决定相对路径从哪里补全。
+
+    绝对路径不受它影响：无论选哪一种，写全了的路径都直接用。
+    """
+
+    DATA = "data"
+    PROGRAM = "program"
+    ABSOLUTE = "absolute"
+
+
+#: 下拉框里的显示顺序。
+PATH_BASE_VALUES: tuple[str, ...] = (PathBase.DATA, PathBase.PROGRAM, PathBase.ABSOLUTE)
+
+#: 没写这个参数时的默认基准。程序目录里放的是 .bat / 脚本，相对路径多半指它。
+DEFAULT_PATH_BASE = PathBase.PROGRAM
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROGRAM_DIR = PACKAGE_DIR.parent
@@ -237,23 +256,37 @@ PYTHONW = PROGRAM_DIR / ".venv" / "Scripts" / "pythonw.exe"
 WEB_DIR = PACKAGE_DIR / "manager" / "web"
 
 
-def resolve_user_path(raw: str) -> Path:
+def resolve_user_path(raw: str, base: str = DEFAULT_PATH_BASE) -> Path:
     """把配置里写下的路径解析成绝对路径。
 
-    相对路径（例如 ``custom\\foo.py``）以数据目录为基准，而不是进程的当前
-    工作目录。这样无论从哪个目录启动程序，配置里写的路径都指向同一个位置。
+    ``base`` 是这条操作自己的「路径基准」：
+
+    * ``data``：相对路径从数据目录补全（``custom\\foo.py`` 指的就是那儿）；
+    * ``program``：相对路径从程序目录补全；
+    * ``absolute``：按绝对路径理解，万一填的还是相对路径，退回程序目录——
+      启动子进程时的工作目录就是它，两者结果一致。
+
+    无论选哪一种，绝对路径都原样返回；解析结果与进程的当前工作目录无关。
     """
     text = (raw or "").strip()
     if len(text) >= 2 and text[0] == text[-1] and text[0] in ("'", '"'):
         text = text[1:-1]
     if not text:
         return PROGRAM_DIR
-    path = Path(text)
+    path = Path(os.path.expandvars(text))
     if path.is_absolute():
         return path
-    return (DATA_DIR / path).resolve()
+    if normalize_path_base(base) == PathBase.DATA:
+        return (DATA_DIR / path).resolve()
+    return (PROGRAM_DIR / path).resolve()
 
 
-def split_paths(raw: str) -> list[Path]:
+def normalize_path_base(value: Any) -> str:
+    """把任意输入收敛成三种基准之一；认不出来时用默认值。"""
+    text = str(value or "").strip().lower()
+    return text if text in PATH_BASE_VALUES else DEFAULT_PATH_BASE
+
+
+def split_paths(raw: str, base: str = DEFAULT_PATH_BASE) -> list[Path]:
     """把配置里用 ``|`` 分隔的路径串拆成绝对路径列表。"""
-    return [resolve_user_path(part) for part in (raw or "").split("|") if part.strip()]
+    return [resolve_user_path(part, base) for part in (raw or "").split("|") if part.strip()]

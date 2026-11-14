@@ -133,6 +133,59 @@ def test_missing_file_is_ignored(tmp_path):
     assert opener.calls == []
 
 
+def test_file_runs_with_the_program_dir_as_cwd(tmp_path):
+    """工作目录恒为程序目录，不跟着目标文件走。"""
+    target = tmp_path / "note.txt"
+    target.write_text("x", encoding="utf-8")
+    opener = RecordingOpener()
+    executor = ActionExecutor(opener, FakeSpeech())
+    operation = Operation(
+        display="Note",
+        type="file",
+        keywords="n",
+        arguments={"path": str(target), "no_window": False},
+    )
+
+    executor.execute(make_row(operation), Modifiers())
+
+    assert opener.calls == [("file", target, paths.PROGRAM_DIR, False)]
+
+
+def test_relative_file_path_uses_its_own_base(monkeypatch, tmp_path):
+    """相对路径按操作自己的「路径基准」补全，与进程 cwd 无关。"""
+    target = tmp_path / "tool.bat"
+    target.write_text("x", encoding="utf-8")
+    opener = RecordingOpener()
+    executor = ActionExecutor(opener, FakeSpeech())
+    operation = Operation(
+        display="Tool",
+        type="file",
+        keywords="t",
+        arguments={"path": "tool.bat", "base": "data", "no_window": True},
+    )
+
+    monkeypatch.setattr(paths, "DATA_DIR", tmp_path)
+
+    executor.execute(make_row(operation), Modifiers())
+
+    assert opener.calls == [("file", target.resolve(), paths.PROGRAM_DIR, True)]
+
+
+def test_relative_dir_path_uses_its_own_base(monkeypatch, tmp_path):
+    opener = RecordingOpener()
+    executor = ActionExecutor(opener, FakeSpeech())
+    operation = Operation(
+        display="Program",
+        type="dir",
+        keywords="p",
+        arguments={"dir": ".", "base": "program", "allow_explore": False},
+    )
+
+    executor.execute(make_row(operation), Modifiers())
+
+    assert opener.calls == [("dir", paths.PROGRAM_DIR)]
+
+
 def test_pipe_separated_paths_are_all_opened(tmp_path):
     first = tmp_path / "a.txt"
     second = tmp_path / "b.txt"

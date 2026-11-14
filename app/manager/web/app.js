@@ -26,7 +26,9 @@
     bound: false,
     lastSelection: '',
     suppressClickUntil: 0,
-    modal: null,
+    // 打开的弹窗按层记录，栈顶就是最上面那一层。叠着开（设置 → 使用说明）时
+    // Esc 只关掉最上面一层，关完之后下面的那层还在，背景也仍然不可交互。
+    modals: [],
   };
 
   const pending = new Map();
@@ -87,7 +89,6 @@
     document.title = T('manager.title');
     document.documentElement.lang = state.language;
     $('list').setAttribute('aria-label', T('manager.list_label'));
-    $('f-function').setAttribute('aria-label', T('manager.debug_function'));
 
     renderDepthHint();
     renderSettingsHints();
@@ -270,14 +271,77 @@
       });
     });
 
-    const menu = $('f-function').querySelector('.select-menu');
-    syncChoices(menu, data.debug_functions, 'value', function (option) {
+    renderSelect('f-function', data.debug_functions);
+    renderSelect('f-base-file', data.path_bases);
+    renderSelect('f-base-dir', data.path_bases);
+  }
+
+  /** 把「值 + 文案」列表填进一个自绘下拉框。 */
+  function renderSelect(id, items) {
+    const select = $(id);
+    if (!select || !items) return;
+    syncChoices(select.querySelector('.select-menu'), items, 'value', function (option) {
       option.className = 'select-option';
       option.setAttribute('role', 'option');
-      option.addEventListener('click', function (event) {
-        event.stopPropagation();
-        chooseFunction(option.dataset.value);
-      });
+    });
+  }
+
+  /** 让一个自绘下拉框可以展开、收起、用键盘选择。 */
+  function bindSelect(id, onChoose) {
+    const select = $(id);
+    if (!select) return;
+
+    select.addEventListener('click', function (event) {
+      event.stopPropagation();
+      const open = select.classList.toggle('open');
+      select.setAttribute('aria-expanded', String(open));
+    });
+
+    select.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      const open = select.classList.toggle('open');
+      select.setAttribute('aria-expanded', String(open));
+    });
+
+    select.querySelector('.select-menu').addEventListener('click', function (event) {
+      const option = event.target.closest('.select-option');
+      if (!option) return;
+      // 不让这次点击冒泡回下拉框本身，否则会立刻又展开一次。
+      event.stopPropagation();
+      closeSelect(id);
+      onChoose(option.dataset.value);
+    });
+  }
+
+  function closeSelect(id) {
+    const select = $(id);
+    if (!select) return;
+    select.classList.remove('open');
+    select.setAttribute('aria-expanded', 'false');
+  }
+
+  function closeAllSelects() {
+    document.querySelectorAll('.select.open').forEach(function (select) {
+      closeSelect(select.id);
+    });
+  }
+
+  function anySelectOpen() {
+    return !!document.querySelector('.select.open');
+  }
+
+  /** 把下拉框的显示值与高亮同步到 ``value``。 */
+  function setSelectValue(id, value) {
+    const select = $(id);
+    if (!select) return;
+    const option = select.querySelector('.select-option[data-value="' + value + '"]');
+    select.dataset.value = value;
+    select.querySelector('.select-value').textContent = option ? option.textContent : value;
+    select.querySelectorAll('.select-option').forEach(function (item) {
+      const active = item.dataset.value === value;
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-selected', String(active));
     });
   }
 
@@ -588,7 +652,10 @@
     $('f-depth').value = args.explore_depth === undefined ? '0' : String(args.explore_depth);
     $('f-url').value = args.url || '';
     $('f-command').value = args.command || '';
-    setFunctionValue(args.function || 'restart');
+    setSelectValue('f-function', args.function || 'restart');
+    const base = args.base || 'program';
+    setSelectValue('f-base-file', base);
+    setSelectValue('f-base-dir', base);
 
     $('btn-up').disabled = operation.index === 0;
     $('btn-down').disabled = operation.index === currentGroup().operations.length - 1;
@@ -698,16 +765,33 @@
     }
     element.classList.remove('hidden', 'leaving');
     void element.offsetWidth;
-    state.modal = id;
+    const position = state.modals.indexOf(id);
+    if (position >= 0) state.modals.splice(position, 1);
+    state.modals.push(id);
+    syncBackdrops();
     // 弹窗打开时背景整体不可交互，Tab 也就进不去了。
     $('app').inert = true;
     const card = element.querySelector('.modal-card');
     if (card) card.focus();
   }
 
+  /**
+   * 只有最底层那层画遮罩。
+   *
+   * 遮罩是半透明的，叠两层就会黑得不透明；叠着开的时候让上层只负责压住
+   * 下面那层弹窗，整页的暗度保持和只开一个弹窗时一样。
+   */
+  function syncBackdrops() {
+    state.modals.forEach(function (id, index) {
+      const element = $(id);
+      if (element) element.classList.toggle('no-backdrop', index > 0);
+    });
+  }
+
   function hideModal(id) {
     const element = $(id);
-    if (!element || element.classList.contains('hidden')) return;
+    if (!element) return;
+    if (element.classList.contains('hidden') || element.classList.contains('leaving')) return;
     const timer = modalTimers.get(id);
     if (timer) clearTimeout(timer);
     element.classList.add('leaving');
@@ -715,22 +799,39 @@
       modalTimers.delete(id);
       element.classList.add('hidden');
       element.classList.remove('leaving');
-      if (state.modal === id) {
-        state.modal = null;
-        $('app').inert = false;
-      }
+      const position = state.modals.indexOf(id);
+      if (position >= 0) state.modals.splice(position, 1);
+      syncBackdrops();
+      if (!state.modals.length) $('app').inert = false;
     }, MODAL_EXIT_MS);
     modalTimers.set(id, handle);
   }
 
   /** 关闭弹窗，并释放它占着的状态。 */
   function closeModal(id) {
+    if (id === 'modal-sheet') {
+      closeSheet(null);
+      return;
+    }
     hideModal(id);
     if (id === 'modal-unsaved') call('answer_close', 'cancel');
+    if (id === 'modal-confirm') confirmAction = null;
   }
 
   function activeModal() {
-    return state.modal ? $(state.modal) : null;
+    const id = state.modals[state.modals.length - 1];
+    return id ? $(id) : null;
+  }
+
+  /**
+   * 点弹窗外面的空白处：等同于点「取消」。
+   *
+   * 设置页是例外——里面全是输入框，误点一下就丢掉整个面板太粗暴，它只认
+   * 显式关闭（× / 完成 / Esc）。
+   */
+  function backdropClose(id) {
+    if (id === 'modal-settings') return;
+    closeModal(id);
   }
 
   function focusableIn(container) {
@@ -940,26 +1041,22 @@
     }
   }
 
-  function setFunctionValue(value) {
-    const select = $('f-function');
-    const option = select.querySelector('.select-option[data-value="' + value + '"]');
-    select.dataset.value = value;
-    select.querySelector('.select-value').textContent = option ? option.textContent : value;
-    select.querySelectorAll('.select-option').forEach(function (item) {
-      const active = item.dataset.value === value;
-      item.classList.toggle('active', active);
-      item.setAttribute('aria-selected', String(active));
-    });
-  }
-
-  async function chooseFunction(value) {
-    const select = $('f-function');
-    select.classList.remove('open');
-    select.setAttribute('aria-expanded', 'false');
+  /**
+   * 下拉框选中一项：立刻写进后端，并把同名的另一个下拉框一起对齐。
+   *
+   * 文件和文件夹各有自己的「路径基准」下拉框，但写的是同一个参数；
+   * 切换类型时两个面板轮流出现，不一起更新就会显示上一个类型的旧值。
+   */
+  async function chooseArgument(key, value, selectId) {
     const operation = currentOperation();
     if (!operation) return;
-    setFunctionValue(value);
-    await call('set_argument', operation.group, operation.index, 'function', value);
+    setSelectValue(selectId, value);
+    if (key === 'base') {
+      ['f-base-file', 'f-base-dir'].forEach(function (id) {
+        setSelectValue(id, value);
+      });
+    }
+    await call('set_argument', operation.group, operation.index, key, value);
     markDirty();
   }
 
@@ -1250,26 +1347,16 @@
       });
     });
 
-    const functionSelect = $('f-function');
-    functionSelect.addEventListener('click', function (event) {
-      event.stopPropagation();
-      const open = functionSelect.classList.toggle('open');
-      functionSelect.setAttribute('aria-expanded', String(open));
+    bindSelect('f-function', function (value) {
+      chooseArgument('function', value, 'f-function');
     });
-    functionSelect.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        const open = functionSelect.classList.toggle('open');
-        functionSelect.setAttribute('aria-expanded', String(open));
-      } else if (event.key === 'Escape') {
-        functionSelect.classList.remove('open');
-        functionSelect.setAttribute('aria-expanded', 'false');
-      }
+    bindSelect('f-base-file', function (value) {
+      chooseArgument('base', value, 'f-base-file');
     });
-    document.addEventListener('click', function () {
-      functionSelect.classList.remove('open');
-      functionSelect.setAttribute('aria-expanded', 'false');
+    bindSelect('f-base-dir', function (value) {
+      chooseArgument('base', value, 'f-base-dir');
     });
+    document.addEventListener('click', closeAllSelects);
 
     $('btn-move-group').addEventListener('click', openGroupPicker);
 
@@ -1423,11 +1510,27 @@
       });
     });
 
+    // 点弹窗外面的空白处关闭。用 mousedown 而不是 click：从卡片里按下、
+    // 拖到外面松开（选文字）不该被当成“点了外面”。
+    document.querySelectorAll('.modal').forEach(function (modal) {
+      modal.addEventListener('mousedown', function (event) {
+        if (event.target !== modal) return;
+        backdropClose(modal.id);
+      });
+    });
+
     document.addEventListener('keydown', function (event) {
       const modifier = event.ctrlKey || event.metaKey;
 
       if (event.key === 'Tab') {
         trapTab(event);
+        return;
+      }
+
+      // 下拉框展开时 Esc 先收起下拉框，再按一次才轮到弹窗。
+      if (event.key === 'Escape' && anySelectOpen()) {
+        event.preventDefault();
+        closeAllSelects();
         return;
       }
 
@@ -1441,7 +1544,7 @@
       } else if (event.key === 'Escape') {
         const modal = activeModal();
         if (modal) {
-          confirmAction = null;
+          // 只关最上面一层；下面压着的弹窗保持原样。
           closeModal(modal.id);
         } else if (state.filter) {
           $('filter-clear').click();
@@ -1751,7 +1854,7 @@
       if (/^\s*\d+\.\s+/.test(line)) {
         flush();
         const items = [];
-        while (index < lines.length && /^\s*\d+\.\s+/.test(line)) {
+        while (index < lines.length && /^\s*\d+\.\s+/.test(lines[index])) {
           items.push(lines[index].replace(/^\s*\d+\.\s+/, ''));
           index += 1;
         }

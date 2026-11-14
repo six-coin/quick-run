@@ -26,6 +26,7 @@ from app.models import (
     debug_label,
     default_arguments,
     field_label,
+    path_base_label,
     type_label,
     validate_groups,
 )
@@ -565,6 +566,10 @@ class ManagerApi:
             "types": [{"value": value, "label": type_label(value)} for value in TYPE_ORDER],
             "debug_functions": [
                 {"value": value, "label": debug_label(value)} for value in DEBUG_FUNCTION_VALUES
+            ],
+            "path_bases": [
+                {"value": value, "label": path_base_label(value)}
+                for value in paths.PATH_BASE_VALUES
             ],
             "field_labels": {
                 name: field_label(name)

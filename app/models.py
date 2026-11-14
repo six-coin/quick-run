@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app import i18n
+from app import i18n, paths
 
 #: 单条操作允许的探索深度上限，属于安全边界而不是用户偏好。
 MAX_EXPLORE_DEPTH = 5
@@ -39,8 +39,17 @@ TYPE_ORDER: tuple[str, ...] = (
 
 #: 每种类型需要用户填写的必填参数。
 TYPE_DEFAULTS: dict[str, dict[str, Any]] = {
-    OperationType.FILE: {"path": "", "no_window": False},
-    OperationType.DIR: {"dir": "", "allow_explore": True, "explore_depth": 0},
+    OperationType.FILE: {
+        "path": "",
+        "base": paths.DEFAULT_PATH_BASE,
+        "no_window": False,
+    },
+    OperationType.DIR: {
+        "dir": "",
+        "base": paths.DEFAULT_PATH_BASE,
+        "allow_explore": True,
+        "explore_depth": 0,
+    },
     OperationType.URL: {"url": ""},
     OperationType.CMD: {"command": ""},
     OperationType.DEBUG: {"function": "restart"},
@@ -71,6 +80,11 @@ def field_label(field_name: str) -> str:
 def debug_label(value: str) -> str:
     """调试动作在界面上的名字。"""
     return i18n.t(f"debug.{value}")
+
+
+def path_base_label(value: str) -> str:
+    """路径基准在界面上的名字。"""
+    return i18n.t(f"path_base.{paths.normalize_path_base(value)}")
 
 
 def default_arguments(op_type: str) -> dict[str, Any]:
@@ -154,6 +168,9 @@ class Operation:
         # 补齐文件里缺的键，让下游可以放心取值；未知的键原样保留。
         for key, value in default_arguments(op_type).items():
             arguments.setdefault(key, value)
+        # 手改过的、旧版本留下的基准值在读取时就收敛掉，界面不会显示认不出的选项。
+        if "base" in arguments:
+            arguments["base"] = paths.normalize_path_base(arguments["base"])
         return cls(
             display=str(data.get("display") or ""),
             type=op_type,
@@ -182,7 +199,7 @@ class Operation:
         return self.keywords.split("|")
 
     def change_type(self, new_type: str) -> None:
-        """切换类型，并在文件和文件夹之间搬运已经填好的路径。"""
+        """切换类型，并在文件和文件夹之间搬运已经填好的路径与基准。"""
         if new_type == self.type:
             return
         old_type = self.type
@@ -190,8 +207,10 @@ class Operation:
         new_args = default_arguments(new_type)
         if new_type == OperationType.FILE and old_type == OperationType.DIR:
             new_args["path"] = old_args.get("dir", "")
+            new_args["base"] = paths.normalize_path_base(old_args.get("base"))
         elif new_type == OperationType.DIR and old_type == OperationType.FILE:
             new_args["dir"] = old_args.get("path", "")
+            new_args["base"] = paths.normalize_path_base(old_args.get("base"))
         self.type = new_type
         self.arguments = new_args
 
@@ -203,9 +222,11 @@ class Operation:
 
         if self.type == OperationType.FILE:
             args["path"] = str(args.get("path", "")).strip().strip('"').replace("/", "\\")
+            args["base"] = paths.normalize_path_base(args.get("base"))
             args["no_window"] = bool(args.get("no_window", False))
         elif self.type == OperationType.DIR:
             args["dir"] = str(args.get("dir", "")).strip().strip('"').replace("/", "\\")
+            args["base"] = paths.normalize_path_base(args.get("base"))
             args["allow_explore"] = bool(args.get("allow_explore", True))
             args["explore_depth"] = _clamp_depth(args.get("explore_depth", 0))
         elif self.type == OperationType.URL:

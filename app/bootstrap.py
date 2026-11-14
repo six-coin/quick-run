@@ -28,7 +28,9 @@ def prepare() -> list[str]:
     warnings: list[str] = list(paths.MIGRATION_WARNINGS)
     if paths.MIGRATED_ITEMS:
         warnings.append(f"数据目录已迁移 {paths.MIGRATED_ITEMS} 项到 {paths.DATA_DIR}")
-    for folder in (paths.DATA_DIR, paths.LOCAL_DIR, paths.LOG_DIR, paths.LOCK_DIR):
+    # custom/ 是「数据目录」这个基准的落点，先建好，用户填相对路径时才有地方放。
+    folders = (paths.DATA_DIR, paths.CUSTOM_DIR, paths.LOCAL_DIR, paths.LOG_DIR, paths.LOCK_DIR)
+    for folder in folders:
         try:
             folder.mkdir(parents=True, exist_ok=True)
         except OSError as error:

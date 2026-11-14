@@ -1003,6 +1003,18 @@ input.invalid {
   flex: 1;
 }
 
+/* 参数面板里每一块（字段 / 开关 / 说明）之间保持同一段间距，
+   否则「路径基准」的说明会贴到下一个字段的标签上。 */
+.arg-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.arg-panel .switch {
+  margin: 0;
+}
+
 .divider {
   height: 1px;
   margin: 18px 0;
@@ -1151,6 +1163,11 @@ input.invalid {
   animation: fade-out 0.16s ease forwards;
 }
 
+/* 叠在别的弹窗上面那层不重复画遮罩：遮罩是半透明的，两层叠起来会黑得看不见底下的内容。 */
+.modal.no-backdrop {
+  background: transparent;
+}
+
 .modal.leaving .modal-card {
   animation: card-out 0.16s var(--ease) forwards;
 }
@@ -1193,6 +1210,12 @@ input.invalid {
 
 .modal-card.narrow {
   width: min(440px, 100%);
+  padding-bottom: 18px;
+}
+
+/* 设置面板比普通弹窗宽一半：里面是两列排布的表单，440px 会把标签挤成竖排。 */
+.modal-card.settings-card {
+  width: min(660px, 100%);
   padding-bottom: 18px;
 }
 
@@ -1466,6 +1489,17 @@ input.invalid {
   gap: 6px;
 }
 
+/* 数据目录：输入框吃掉剩余宽度，两个按钮保持原尺寸；路径用等宽字体好认。 */
+.settings-section .inline input[type="text"] {
+  min-width: 0;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 12.5px;
+}
+
+.settings-section .inline .btn {
+  flex: none;
+}
+
 .seg {
   display: inline-flex;
   align-self: flex-start;
@@ -1592,27 +1626,43 @@ input.invalid {
   overflow-y: auto;
 }
 
+/* 弹窗正文里的裸段落：和 .md 正文同一套字号，不跟着 body 的 15px 走。 */
+#modal-sheet .modal-body > p {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.75;
+}
+
 #modal-sheet .modal-actions {
   padding: 12px 22px 18px;
   border-top: 1px solid var(--border-soft);
 }
 
+/* 窄弹窗只放一句确认话术：不需要分割线，也不该在按钮下面再留一段空白。 */
+#modal-sheet .modal-card.narrow {
+  padding-bottom: 0;
+}
+
+#modal-sheet .modal-card.narrow .modal-body {
+  padding: 0 22px;
+}
+
+#modal-sheet .modal-card.narrow .modal-actions {
+  padding: 10px 22px 18px;
+  border-top: none;
+}
+
 /* ---------- 关于 ---------- */
 
-.about-row {
+.about-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border-soft);
 }
 
-.about-row:first-of-type {
-  border-top: none;
-}
-
-.about-main {
+.about-line-text {
   flex: 1;
   min-width: 0;
 }
@@ -1622,34 +1672,14 @@ input.invalid {
   font-size: 13.5px;
 }
 
-.about-main .hint {
+.about-line-text .hint {
   margin: 2px 0 0;
-}
-
-.about-control {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-}
-
-.about-control input[type="text"] {
-  width: 260px;
-  font-family: "Cascadia Mono", "Consolas", monospace;
-  font-size: 12.5px;
 }
 
 .about-value {
   color: var(--text-soft);
   font-family: "Cascadia Mono", "Consolas", monospace;
   font-size: 12.5px;
-}
-
-/* 使用说明是这一屏唯一的主操作，给一个比普通按钮大一号的白底按钮。 */
-.btn.about-large {
-  height: 38px;
-  padding: 0 22px;
-  font-size: 13.5px;
 }
 
 /* 设置面板底部：左边「重置所有设置」，右边「完成」。 */

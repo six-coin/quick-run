@@ -130,10 +130,20 @@ Open it with `manager.bat`. The group tree is on the left, the editor on the rig
 | Open file | `path` | Opens with the default program. `no_window` hides the console window |
 | Open folder | `dir` | Opens in Explorer. Subfolder browsing and exploration depth are optional |
 | Open URL | `url` | Opens in the default browser |
-| Run command | `command` | Runs in the program directory and keeps the console window |
+| Run command | `command` | Runs in the program folder and keeps the console window |
 | Debug | `function` | Restarts or closes Quick Run itself |
 
-A file path may contain several entries separated by `|`; all of them open at once.
+File and folder operations each have a **path base** dropdown that decides how the path is completed:
+
+| Option | Where a relative path starts |
+|---|---|
+| Relative to the data folder | The data folder (default `%PROGRAMDATA%\six-coin\quick-run`, configurable); `custom\` lives there |
+| Relative to the program folder | The folder holding `main.bat` |
+| Absolute path | No completion; the path is used exactly as typed |
+
+All three only matter when the path is **not** absolute: a full path such as `D:\Tools\x.exe` points at the same file whichever base you pick. A file path may contain several entries separated by `|`; all of them open at once.
+
+Whenever the launcher runs an operation, the working directory is the program folder — never the folder of the target file.
 
 ### 4.3 Match keywords
 
@@ -151,8 +161,8 @@ Click the gear at the right of the title bar:
 
 | Item | Description |
 |---|---|
-| Language | System language | Simplified Chinese (China) / English (US) built in; switching applies immediately; the list is sorted by language code |
-| Appearance | System theme | Light or dark only; the system preference is read once on the first run, then the setting wins |
+| Language | Simplified Chinese (China) / English (US) built in; switching applies immediately; the list is sorted by language code |
+| Appearance | Light or dark only; the system preference is read once on the first run, then the setting wins |
 | Fade in | Milliseconds for the launcher's fade-in, 0–1000; 0 disables the animation. Restart the launcher to apply |
 | Fade out | Milliseconds for the fade-out, same rules |
 | Max scan depth | Global depth limit for folder browsing, 0–5 |
@@ -160,9 +170,15 @@ Click the gear at the right of the title bar:
 | Baidu Translate | Translation is enabled only when both `appid` and secret key are set |
 | AI definition | Enabled once an API key is filled in |
 
-The last section of Settings is "About": data folder (an input box with "Change" and "Reset"), user manual and version. A change appends `quick-run` automatically and applies after a restart, moving the old contents over. Reset also restores language and appearance; the operation list is untouched.
+Below the fields there are three blocks, with no dividers between them:
 
-Secret fields are masked by default; click the eye icon to reveal them temporarily.
+- **Data folder**: the first row holds the input box plus "Change" and "Reset"; the next row explains the setting. A change appends `quick-run` automatically and applies after a restart, moving the old contents over.
+- **User manual**: the "Open" button on the right shows the manual in the current language.
+- **Version**: the version of the program you are running.
+
+Secret fields are masked by default; click the eye icon to reveal them temporarily. The bottom of the panel has "Reset all settings" on the left (language and appearance go back to defaults; the operation list is untouched) and "Done" on the right.
+
+The settings panel only closes through "Done", the × in the corner, or `Esc`; clicking outside it does nothing. Every other dialog (manual, confirmations) closes on `Esc` or a click outside.
 
 ### 4.5 Keyboard
 
@@ -179,7 +195,7 @@ The sidebar as a whole is a **single** `Tab` stop:
 | `Ctrl+S` | Save |
 | `Ctrl+F` | Focus the search box |
 
-While a dialog is open, `Tab` cycles inside it and `Esc` closes it. The `+` and the switch on group rows are mouse-only; select the group and use the panel on the right instead.
+While a dialog is open, `Tab` cycles inside it and `Esc` closes the topmost layer. The `+` and the switch on group rows are mouse-only; select the group and use the panel on the right instead.
 
 ## 5. Configuration and data
 
@@ -189,7 +205,7 @@ The program folder holds code and `setup.bat` only; runtime files live in system
 %PROGRAMDATA%\six-coin\quick-run\       data folder (configurable)
 ├─ app.json                             application settings
 ├─ operations.json                      operations and groups
-└─ custom\                              your own scripts and assets (relative paths resolve against the data folder)
+└─ custom\                              your own scripts and assets (pick the data folder as the path base)
 
 %LOCALAPPDATA%\six-coin\quick-run\
 ├─ logs\                                runtime logs
@@ -229,12 +245,14 @@ The root is the group array:
         "display": "Operations & help",
         "type": "file",
         "keywords": "manager",
-        "arguments": { "path": "manager.bat", "no_window": true }
+        "arguments": { "path": "manager.bat", "base": "program", "no_window": true }
       }
     ]
   }
 ]
 ```
+
+`base` is the path base: `data` (data folder), `program` (program folder) or `absolute`. Configs written before this key existed are read as `program`.
 
 See [4.2](#42-operation-types) and [4.3](#43-match-keywords) for the fields. After editing by hand, restart the launcher; the manager re-reads the file every time it opens.
 
@@ -270,21 +288,27 @@ Other rules:
 ## 7. FAQ
 
 **`Alt+Space` does nothing**
+
 Another program owns the hotkey. The log records “registration failed (error 1409)” and a dialog appears at startup. Close the program holding the hotkey (often another launcher or a screen recorder) and run `main.bat` again.
 
 **The manager window is blank**
+
 Check that the WebView2 runtime is installed. Windows 11 ships with it; Windows 10 may need the [Evergreen Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 **Translation does not work**
+
 Both `appid` and `secret_key` must be filled in. Only one of them counts as not configured.
 
 **Ctrl+Enter does not read the text aloud**
+
 Speech requires python-vlc and the VLC desktop player. Without them the program still works, just silently.
 
 **I changed the appearance in `app.json` but the launcher did not change**
+
 The launcher reads configuration once at startup; restart `main.bat`. Switching inside the manager is immediate.
 
 **I want the default configuration back**
+
 Close the program, delete `%PROGRAMDATA%\six-coin\quick-run\app.json` and `operations.json`, then start again.
 
 ## 8. Development

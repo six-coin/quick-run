@@ -150,19 +150,29 @@ def default_operations() -> list[dict[str, Any]]:
             "display": i18n.t("default.manager"),
             "type": "file",
             "keywords": "manager",
-            "arguments": {"path": "manager.bat", "no_window": True},
+            "arguments": {"path": "manager.bat", "base": paths.PathBase.PROGRAM, "no_window": True},
         },
         {
             "display": i18n.t("default.program_folder"),
             "type": "dir",
             "keywords": "folder",
-            "arguments": {"dir": ".", "allow_explore": False, "explore_depth": 0},
+            "arguments": {
+                "dir": ".",
+                "base": paths.PathBase.PROGRAM,
+                "allow_explore": False,
+                "explore_depth": 0,
+            },
         },
         {
             "display": i18n.t("default.startup_folder"),
             "type": "dir",
             "keywords": "startup",
-            "arguments": {"dir": startup_dir, "allow_explore": False, "explore_depth": 0},
+            "arguments": {
+                "dir": startup_dir,
+                "base": paths.PathBase.ABSOLUTE,
+                "allow_explore": False,
+                "explore_depth": 0,
+            },
         },
         {
             "display": i18n.t("debug.restart"),

@@ -72,7 +72,8 @@ class WindowsOpener:
             logger.warning("打开路径 {} 时出错：路径不存在或不是路径", target)
             return
         try:
-            os.startfile(str(target))  # 这里就是要交给 shell 打开
+            # 工作目录恒为程序目录，不跟着被打开的文件夹走。
+            os.startfile(str(target), cwd=str(paths.PROGRAM_DIR))
         except OSError as error:
             logger.warning("打开路径 {} 时出错：{}", target, error)
 
