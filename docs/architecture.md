@@ -13,12 +13,12 @@ Quick Run 有两个独立进程：
 
 硬约束：
 
-| 约束 | 原因 |
-|---|---|
-| 进程内不调用 `os.chdir` | 工作目录是进程级全局状态，被多线程共享。一旦切换，其他线程写相对路径就会落到别处 |
-| 所有内部路径由 `__file__` 推导 | 程序从任何目录启动、被任何快捷方式拉起，行为一致 |
-| `app/core` 不导入任何界面库 | 核心逻辑要能被纯 pytest 覆盖，也要能被两个界面共用 |
-| 入口文件保持极薄 | 装配集中在 `app/launcher/app.py` 与 `app/manager/app.py` |
+| 约束                    | 原因                                                 |
+|-----------------------|----------------------------------------------------|
+| 进程内不调用 `os.chdir`     | 工作目录是进程级全局状态，被多线程共享。一旦切换，其他线程写相对路径就会落到别处           |
+| 所有内部路径由 `__file__` 推导 | 程序从任何目录启动、被任何快捷方式拉起，行为一致                           |
+| `app/core` 不导入任何界面库   | 核心逻辑要能被纯 pytest 覆盖，也要能被两个界面共用                      |
+| 入口文件保持极薄              | 装配集中在 `app/launcher/app.py` 与 `app/manager/app.py` |
 
 前三条由 `tests/test_source_hygiene.py` 静态扫描强制，第四条由 `test_entry_points_are_thin` 限制行数。
 
@@ -100,24 +100,24 @@ app/
 
 ## 4. 模块职责
 
-| 模块 | 职责 | 不做什么 |
-|---|---|---|
-| `paths` | 计算所有路径；按操作的路径基准补全用户填的路径 | 不判断文件是否存在 |
-| `settings` | 读写两个 JSON、校验结构、夹取数值范围 | 不缓存，不持有界面状态 |
-| `models` | 数据结构、类型常量、字段校验、写盘前归一化 | 不读写文件 |
-| `i18n` | 扫描语言目录、按语言查表、填充占位符 | 不关心调用者是谁 |
-| `prompts` | 内置系统提示词常量 | 不读配置、不联网 |
-| `core.matching` | 字符串归一化与拼音 | 不做 I/O |
-| `core.catalog` | 前缀匹配、找可浏览的文件夹操作 | 不执行操作 |
-| `core.navigation` | 解析浏览语法、逐层列目录 | 不打开任何东西 |
-| `core.resolver` | 决定显示哪些行、哪些要异步发起 | 不发起请求 |
-| `core.calculator` | 安全求值 | 不弹窗 |
-| `core.actions` | 把结果行变成副作用，返回「是否收起」「要复制什么」 | 不碰窗口 |
-| `system.shell` | 启动进程，工作目录用参数传递 | 不改进程状态 |
-| `launcher.controller` | 查询、选中、历史、防抖、代次 | 不碰控件 |
-| `launcher.window` | 渲染信号、键盘映射、窗口动画 | 不做业务判断 |
-| `manager.api` | 每个用户意图一个方法，返回完整状态快照 | 不拼 HTML |
-| `manager.web` | 纯渲染器，状态从 `get_state()` 来 | 不自己维护业务数据 |
+| 模块                    | 职责                        | 不做什么        |
+|-----------------------|---------------------------|-------------|
+| `paths`               | 计算所有路径；按操作的路径基准补全用户填的路径   | 不判断文件是否存在   |
+| `settings`            | 读写两个 JSON、校验结构、夹取数值范围     | 不缓存，不持有界面状态 |
+| `models`              | 数据结构、类型常量、字段校验、写盘前归一化     | 不读写文件       |
+| `i18n`                | 扫描语言目录、按语言查表、填充占位符        | 不关心调用者是谁    |
+| `prompts`             | 内置系统提示词常量                 | 不读配置、不联网    |
+| `core.matching`       | 字符串归一化与拼音                 | 不做 I/O      |
+| `core.catalog`        | 前缀匹配、找可浏览的文件夹操作           | 不执行操作       |
+| `core.navigation`     | 解析浏览语法、逐层列目录              | 不打开任何东西     |
+| `core.resolver`       | 决定显示哪些行、哪些要异步发起           | 不发起请求       |
+| `core.calculator`     | 安全求值                      | 不弹窗         |
+| `core.actions`        | 把结果行变成副作用，返回「是否收起」「要复制什么」 | 不碰窗口        |
+| `system.shell`        | 启动进程，工作目录用参数传递            | 不改进程状态      |
+| `launcher.controller` | 查询、选中、历史、防抖、代次            | 不碰控件        |
+| `launcher.window`     | 渲染信号、键盘映射、窗口动画            | 不做业务判断      |
+| `manager.api`         | 每个用户意图一个方法，返回完整状态快照       | 不拼 HTML     |
+| `manager.web`         | 纯渲染器，状态从 `get_state()` 来  | 不自己维护业务数据   |
 
 ## 5. 关键流程
 
@@ -144,16 +144,16 @@ setup 日志
 
 `QueryResolver.resolve` 是一条严格的优先级链：
 
-| 顺序 | 条件 | 结果 |
-|---|---|---|
-| 1 | 全是空白 | 空列表 |
-| 2 | 以 `` ` `` 结尾 | 只给内置行（搜索 / 计算 / 查词 / 翻译） |
-| 3 | 以 `#` 结尾且长度 > 1 | 去掉 `#` 重新解析（避免输入 `a#2` 途中列表跳变） |
-| 4 | 含空格且前半段是可浏览的文件夹操作 | 目录浏览 |
-| 5 | 含空格且整串命中操作 | 操作行 |
-| 6 | 不含空格且形如 `关键词#n` | 只显示第 n 个匹配项 |
-| 7 | 命中操作 | 操作行 |
-| 8 | 其他 | 内置行 |
+| 顺序 | 条件                | 结果                             |
+|----|-------------------|--------------------------------|
+| 1  | 全是空白              | 空列表                            |
+| 2  | 以 `` ` `` 结尾      | 只给内置行（搜索 / 计算 / 查词 / 翻译）       |
+| 3  | 以 `#` 结尾且长度 > 1   | 去掉 `#` 重新解析（避免输入 `a#2` 途中列表跳变） |
+| 4  | 含空格且前半段是可浏览的文件夹操作 | 目录浏览                           |
+| 5  | 含空格且整串命中操作        | 操作行                            |
+| 6  | 不含空格且形如 `关键词#n`   | 只显示第 n 个匹配项                    |
+| 7  | 命中操作              | 操作行                            |
+| 8  | 其他                | 内置行                            |
 
 内置行最多四条：搜索（总是有）、计算（输入像算式时）、查词（配了 AI Key 时）、翻译（配了百度凭据且文本不超过 30 字时）。计算与翻译会额外返回 `PendingRequest`，由控制器延迟发起。
 
@@ -161,14 +161,14 @@ setup 日志
 
 `ActionExecutor.execute(row, modifiers)` 按 `RowKind` 分派：
 
-| 行类型 | 行为 |
-|---|---|
-| `EXTERNAL` | 按操作类型打开文件 / 文件夹 / 网址，或执行命令 |
-| `EXPLORE` | 打开浏览列表里的条目 |
-| `SEARCH` | 打开必应搜索结果 |
-| `CALCULATE` / `DEFINITION` | 算完了就返回要复制的文本并收起 |
-| `TRANSLATE` | 带修饰键则朗读，否则打开百度翻译页面 |
-| `ERROR` | 直接收起 |
+| 行类型                        | 行为                         |
+|----------------------------|----------------------------|
+| `EXTERNAL`                 | 按操作类型打开文件 / 文件夹 / 网址，或执行命令 |
+| `EXPLORE`                  | 打开浏览列表里的条目                 |
+| `SEARCH`                   | 打开必应搜索结果                   |
+| `CALCULATE` / `DEFINITION` | 算完了就返回要复制的文本并收起            |
+| `TRANSLATE`                | 带修饰键则朗读，否则打开百度翻译页面         |
+| `ERROR`                    | 直接收起                       |
 
 返回值 `ActionOutcome(hide, clipboard_text)` 让「要不要收起窗口」和「复制什么」变成纯数据，窗口只负责执行这两个动作。
 
@@ -197,20 +197,50 @@ setup 日志
 
 ```json
 {
-  "ok": true,
-  "message": "",
-  "groups": [{ "index": 0, "name": "常用", "enabled": true, "count": 3, "operations": [...] }],
-  "selection": { "kind": "operation", "group": 0, "index": 1 },
-  "total": 48,
-  "enabled_total": 46,
-  "dirty": false,
-  "errors": [{ "group": 0, "index": 1, "field": "keywords", "label": "匹配字串" }],
-  "types": [...],
-  "debug_functions": [...],
-  "path_bases": [...],
-  "language": "zh-CN",
-  "theme": "light",
-  "navigation": { "max_depth": 5, "max_entries": 100 }
+    "ok": true,
+    "message": "",
+    "groups": [
+        {
+            "index": 0,
+            "name": "常用",
+            "enabled": true,
+            "count": 3,
+            "operations": [
+                ...
+            ]
+        }
+    ],
+    "selection": {
+        "kind": "operation",
+        "group": 0,
+        "index": 1
+    },
+    "total": 48,
+    "enabled_total": 46,
+    "dirty": false,
+    "errors": [
+        {
+            "group": 0,
+            "index": 1,
+            "field": "keywords",
+            "label": "匹配字串"
+        }
+    ],
+    "types": [
+        ...
+    ],
+    "debug_functions": [
+        ...
+    ],
+    "path_bases": [
+        ...
+    ],
+    "language": "zh-CN",
+    "theme": "light",
+    "navigation": {
+        "max_depth": 5,
+        "max_entries": 100
+    }
 }
 ```
 
@@ -240,27 +270,27 @@ closing 回调（UI 线程）
 
 ## 6. 线程模型
 
-| 线程 | 归属 | 做什么 |
-|---|---|---|
-| Qt 主线程 | 启动器 | 全部界面操作、窗口动画、结果渲染 |
-| 热键线程 | `HotkeyListener` | `RegisterHotKey` + `GetMessage` 循环，只发信号 |
-| 线程池 | `QThreadPool` | 计算、翻译、查词、执行动作，结果通过信号回到主线程 |
-| pywebview UI 线程 | 管理器 | 窗口消息循环 |
-| js_api 线程 | 管理器 | 每次网页调用一个线程，执行 `ManagerApi` 方法 |
-| 关闭提示线程 | 管理器 | 只做一次 `evaluate_js`，随后退出 |
+| 线程              | 归属               | 做什么                                     |
+|-----------------|------------------|-----------------------------------------|
+| Qt 主线程          | 启动器              | 全部界面操作、窗口动画、结果渲染                        |
+| 热键线程            | `HotkeyListener` | `RegisterHotKey` + `GetMessage` 循环，只发信号 |
+| 线程池             | `QThreadPool`    | 计算、翻译、查词、执行动作，结果通过信号回到主线程               |
+| pywebview UI 线程 | 管理器              | 窗口消息循环                                  |
+| js_api 线程       | 管理器              | 每次网页调用一个线程，执行 `ManagerApi` 方法           |
+| 关闭提示线程          | 管理器              | 只做一次 `evaluate_js`，随后退出                 |
 
 跨线程只传数据，不传控件。启动器用 Qt 信号，管理器用返回值。
 
 ## 7. 错误处理
 
-| 场景 | 策略 |
-|---|---|
-| 配置损坏 | `ConfigError` → `logging_setup.fatal` → 弹窗给出日志路径 → 退出 |
-| 网络请求失败 | `ServiceError` → 写进对应结果行的文本，程序继续运行 |
-| 算式非法 / 超时 | `CalcError` → 结果行显示原因 |
-| 打开文件失败 | 记一条 warning，不打断其他条目 |
-| 写配置失败 | 管理器记日志并把原因显示在提示条里 |
-| 未捕获异常 | `sys.excepthook` / `threading.excepthook` 记录后弹窗 |
+| 场景        | 策略                                                    |
+|-----------|-------------------------------------------------------|
+| 配置损坏      | `ConfigError` → `logging_setup.fatal` → 弹窗给出日志路径 → 退出 |
+| 网络请求失败    | `ServiceError` → 写进对应结果行的文本，程序继续运行                    |
+| 算式非法 / 超时 | `CalcError` → 结果行显示原因                                 |
+| 打开文件失败    | 记一条 warning，不打断其他条目                                   |
+| 写配置失败     | 管理器记日志并把原因显示在提示条里                                     |
+| 未捕获异常     | `sys.excepthook` / `threading.excepthook` 记录后弹窗       |
 
 原则：**能降级的降级，不能降级的要留下可读的原因**。任何静默失败都算缺陷。
 
@@ -268,12 +298,12 @@ closing 回调（UI 线程）
 
 `app/paths.py` 是唯一允许推导路径的地方。四类位置：
 
-| 位置 | 内容 | 默认 |
-|---|---|---|
-| 程序目录 | 代码、`setup.bat`、各入口 `.bat` | 仓库根目录 |
-| 数据目录 | `app.json`、`operations.json`、`custom/` | `%PROGRAMDATA%\six-coin\quick-run` |
-| 本地目录 | `logs/`、`locks/`、`data-dir.txt` | `%LOCALAPPDATA%\six-coin\quick-run` |
-| 临时目录 | 可随时丢弃的中间文件 | `%TEMP%\six-coin\quick-run` |
+| 位置   | 内容                                     | 默认                                  |
+|------|----------------------------------------|-------------------------------------|
+| 程序目录 | 代码、`setup.bat`、各入口 `.bat`              | 仓库根目录                               |
+| 数据目录 | `app.json`、`operations.json`、`custom/` | `%PROGRAMDATA%\six-coin\quick-run`  |
+| 本地目录 | `logs/`、`locks/`、`data-dir.txt`        | `%LOCALAPPDATA%\six-coin\quick-run` |
+| 临时目录 | 可随时丢弃的中间文件                             | `%TEMP%\six-coin\quick-run`         |
 
 - 配置里的相对路径按每条操作自己的 `base` 解析：`data`（数据目录）、`program`（程序目录）、`absolute`（绝对路径）。`base` 没有默认值，缺了或写错在读取时抛 `ConfigError`。解析只发生在执行时，与进程 cwd 无关；换盘符不会失效。
 - 数据目录可在设置里改，指针写在本地目录的 `data-dir.txt`，重启后生效。
@@ -306,14 +336,14 @@ closing 回调（UI 线程）
 
 网页通过 `window.pywebview.api.<方法>(...)` 调用 Python，参数与返回值都是 JSON 可序列化的值。方法分四类：
 
-| 类别 | 方法 |
-|---|---|
-| 读取 | `get_state` `get_strings` `get_settings` |
-| 选择 | `select_operation` `select_group` |
-| 结构编辑 | `add_operation` `add_group` `delete_operation` `delete_group` `move_operation` `move_group` `move_operation_by` `move_group_by` |
-| 字段编辑 | `set_field` `set_argument` `change_type` `set_group_name` `set_group_enabled` |
-| 应用设置 | `set_language` `set_theme` `update_settings` |
-| 持久化与窗口 | `save` `browse_file` `browse_dir` `answer_close` |
+| 类别     | 方法                                                                                                                              |
+|--------|---------------------------------------------------------------------------------------------------------------------------------|
+| 读取     | `get_state` `get_strings` `get_settings`                                                                                        |
+| 选择     | `select_operation` `select_group`                                                                                               |
+| 结构编辑   | `add_operation` `add_group` `delete_operation` `delete_group` `move_operation` `move_group` `move_operation_by` `move_group_by` |
+| 字段编辑   | `set_field` `set_argument` `change_type` `set_group_name` `set_group_enabled`                                                   |
+| 应用设置   | `set_language` `set_theme` `update_settings`                                                                                    |
+| 持久化与窗口 | `save` `browse_file` `browse_dir` `answer_close`                                                                                |
 
 约定：
 

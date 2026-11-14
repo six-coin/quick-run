@@ -52,7 +52,7 @@
 | `translate.appid`        | 字符串 | `""`  | 与 `secret_key` 同时非空才启用翻译                                            |
 | `translate.secret_key`   | 字符串 | `""`  | 同上                                                                  |
 | `ai.api_key`             | 字符串 | `""`  | 非空才启用查词                                                             |
-| `ai.prompt`              | 字符串 | 内置提示词 | 发给模型的系统提示词；留空或删掉时回到 `app/prompts.py` 里的默认值                        |
+| `ai.prompt`              | 字符串 | 内置提示词 | 发给模型的系统提示词；留空或删掉时回到 `app/prompts.py` 里的默认值                          |
 
 说明：
 

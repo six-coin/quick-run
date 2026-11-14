@@ -30,11 +30,11 @@ On a slow network, swap the `url` in `uv.toml` for a mirror (e.g. `https://mirro
 
 ## 2. Starting
 
-| File | Purpose |
-|---|---|
-| `main.bat` | Starts the background launcher; summon it with `Alt+Space` |
-| `manager.bat` | Opens the operation manager window |
-| `setup.bat` | Installs / updates the virtual environment |
+| File          | Purpose                                                    |
+|---------------|------------------------------------------------------------|
+| `main.bat`    | Starts the background launcher; summon it with `Alt+Space` |
+| `manager.bat` | Opens the operation manager window                         |
+| `setup.bat`   | Installs / updates the virtual environment                 |
 
 Both launch scripts use `pythonw.exe` from `.venv`, so no console window is left behind.
 
@@ -53,13 +53,13 @@ Both entry points are single-instance: starting `main.bat` twice shows "already 
 
 Type a few letters and the list shows operations by **prefix match**; press Enter to run one.
 
-| Key | Action |
-|---|---|
-| `Alt+Space` | Show / hide the launcher |
-| `↑` `↓` | Move the selection |
-| `Enter` | Run the selected item |
-| `Esc` | Hide |
-| `Shift+↑` `Shift+↓` | Browse input history |
+| Key                                | Action                                                                                      |
+|------------------------------------|---------------------------------------------------------------------------------------------|
+| `Alt+Space`                        | Show / hide the launcher                                                                    |
+| `↑` `↓`                            | Move the selection                                                                          |
+| `Enter`                            | Run the selected item                                                                       |
+| `Esc`                              | Hide                                                                                        |
+| `Shift+↑` `Shift+↓`                | Browse input history                                                                        |
 | `Ctrl` / `Shift` / `Alt` + `Enter` | For files, open the containing folder instead; for the translation row, read the text aloud |
 
 The input is single-line, and the right-click menu is disabled.
@@ -79,13 +79,13 @@ Indexes start at 1. Out-of-range values report “unknown index”; a bare `#`, 
 
 Tick **allow browsing subfolders** on an “open folder” operation, then type `keyword` plus a space. In the table below `␣` stands for one space:
 
-| Input | Result |
-|---|---|
-| `play␣` | List the folder contents |
-| `play␣a` | List entries whose name contains a |
-| `play␣a␣` | Enter the first match and list its contents |
-| `play␣a␣␣` | Enter the second match |
-| `play␣a#2` | Show only the second match |
+| Input      | Result                                      |
+|------------|---------------------------------------------|
+| `play␣`    | List the folder contents                    |
+| `play␣a`   | List entries whose name contains a          |
+| `play␣a␣`  | Enter the first match and list its contents |
+| `play␣a␣␣` | Enter the second match                      |
+| `play␣a#2` | Show only the second match                  |
 
 In short:
 
@@ -100,12 +100,12 @@ Matching also accepts pinyin, so `biji` finds 「笔记」. How deep you can go 
 
 When nothing matches, these rows appear:
 
-| Row | Enter does |
-|---|---|
-| **Search** | Opens Bing results in the default browser |
-| **Calculate** | Copies the result to the clipboard (supports `+ - * / // % **` and parentheses) |
+| Row           | Enter does                                                                           |
+|---------------|--------------------------------------------------------------------------------------|
+| **Search**    | Opens Bing results in the default browser                                            |
+| **Calculate** | Copies the result to the clipboard (supports `+ - * / // % **` and parentheses)      |
 | **Translate** | Opens the Baidu Translate page; with `Ctrl`/`Shift`/`Alt` held, reads the text aloud |
-| **Define** | Looks the word up with an LLM (requires an API key) |
+| **Define**    | Looks the word up with an LLM (requires an API key)                                  |
 
 Appending a backtick `` ` `` to the query skips operation matching and keeps only these rows.
 
@@ -125,31 +125,31 @@ Open it with `manager.bat`. The group tree is on the left, the editor on the rig
 
 ### 4.2 Operation types
 
-| Type | Required argument | Notes |
-|---|---|---|
-| Open file | `path` | Opens with the default program. `no_window` hides the console window |
-| Open folder | `dir` | Opens in Explorer. Subfolder browsing and exploration depth are optional |
-| Open URL | `url` | Opens in the default browser |
-| Run command | `command` | Runs in the program folder and keeps the console window |
-| Debug | `function` | Restarts or closes Quick Run itself |
+| Type        | Required argument | Notes                                                                    |
+|-------------|-------------------|--------------------------------------------------------------------------|
+| Open file   | `path`            | Opens with the default program. `no_window` hides the console window     |
+| Open folder | `dir`             | Opens in Explorer. Subfolder browsing and exploration depth are optional |
+| Open URL    | `url`             | Opens in the default browser                                             |
+| Run command | `command`         | Runs in the program folder and keeps the console window                  |
+| Debug       | `function`        | Restarts or closes Quick Run itself                                      |
 
 File and folder operations each have a **path base** dropdown that decides how the path is completed:
 
-| Option | Where a relative path starts |
-|---|---|
-| Relative to the data folder | The data folder (default `%PROGRAMDATA%\six-coin\quick-run`, configurable); `custom\` lives there |
-| Relative to the program folder | The folder holding `main.bat` |
-| Absolute path | No completion; the path is used exactly as typed |
+| Option                         | Where a relative path starts                                                                      |
+|--------------------------------|---------------------------------------------------------------------------------------------------|
+| Relative to the data folder    | The data folder (default `%PROGRAMDATA%\six-coin\quick-run`, configurable); `custom\` lives there |
+| Relative to the program folder | The folder holding `main.bat`                                                                     |
+| Absolute path                  | No completion; the path is used exactly as typed                                                  |
 
 All three only matter when the path is **not** absolute: a full path such as `D:\Tools\x.exe` points at the same file whichever base you pick. A file path may contain several entries separated by `|`; all of them open at once.
 
 Switching the base also changes the grey example text inside the path box, so you can copy the shape of the example:
 
-| Base | File path example | Folder path example |
-|---|---|---|
-| Absolute path | `E:\data\example.json` | `E:\data\` |
-| Data folder | `custom\example.bat` | `custom\` |
-| Program folder | `manager.bat` | `docs\` |
+| Base           | File path example      | Folder path example |
+|----------------|------------------------|---------------------|
+| Absolute path  | `E:\data\example.json` | `E:\data\`          |
+| Data folder    | `custom\example.bat`   | `custom\`           |
+| Program folder | `manager.bat`          | `docs\`             |
 
 Folder paths get a trailing `\` when saved (`E:\data` is stored as `E:\data\`).
 
@@ -169,17 +169,17 @@ For example `leidian|ld` means either `leidian` or `ld` hits it.
 
 Click the gear at the right of the title bar:
 
-| Item | Description |
-|---|---|
-| Language | Simplified Chinese (China) / English (US) built in; switching applies immediately; the list is sorted by language code |
-| Appearance | Light or dark only; the system preference is read once on the first run, then the setting wins |
-| Fade in | Milliseconds for the launcher's fade-in, 0–1000; 0 disables the animation. Restart the launcher to apply |
-| Fade out | Milliseconds for the fade-out, same rules |
-| Max scan depth | Global depth limit for folder browsing, 0–5 |
-| Max entries per folder | Folders with more entries are not expanded, keeping the UI responsive |
-| Baidu Translate | Translation is enabled only when both `appid` and secret key are set |
-| AI definition | Enabled once an API key is filled in |
-| AI prompt | System prompt sent to the model; shapes the answer style. Clear it or press “Restore default prompt” to get the built-in one back |
+| Item                   | Description                                                                                                                       |
+|------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| Language               | Simplified Chinese (China) / English (US) built in; switching applies immediately; the list is sorted by language code            |
+| Appearance             | Light or dark only; the system preference is read once on the first run, then the setting wins                                    |
+| Fade in                | Milliseconds for the launcher's fade-in, 0–1000; 0 disables the animation. Restart the launcher to apply                          |
+| Fade out               | Milliseconds for the fade-out, same rules                                                                                         |
+| Max scan depth         | Global depth limit for folder browsing, 0–5                                                                                       |
+| Max entries per folder | Folders with more entries are not expanded, keeping the UI responsive                                                             |
+| Baidu Translate        | Translation is enabled only when both `appid` and secret key are set                                                              |
+| AI definition          | Enabled once an API key is filled in                                                                                              |
+| AI prompt              | System prompt sent to the model; shapes the answer style. Clear it or press “Restore default prompt” to get the built-in one back |
 
 Below the fields there are three blocks, with no dividers between them:
 
@@ -197,16 +197,16 @@ The settings panel only closes through "Done", the × in the corner, or `Esc`; c
 
 The sidebar as a whole is a **single** `Tab` stop:
 
-| Key | Action |
-|---|---|
-| `Tab` | Enter the list once; the next `Tab` leaves it |
-| `↑` `↓` | Move between groups and operations |
-| `Home` `End` | Jump to the first / last item |
+| Key             | Action                                                         |
+|-----------------|----------------------------------------------------------------|
+| `Tab`           | Enter the list once; the next `Tab` leaves it                  |
+| `↑` `↓`         | Move between groups and operations                             |
+| `Home` `End`    | Jump to the first / last item                                  |
 | `Enter` `Space` | Select the focused item; a collapsed group is expanded as well |
-| `←` | Collapse a group, or jump from an operation back to its group |
-| `→` | Expand a group |
-| `Ctrl+S` | Save |
-| `Ctrl+F` | Focus the search box |
+| `←`             | Collapse a group, or jump from an operation back to its group  |
+| `→`             | Expand a group                                                 |
+| `Ctrl+S`        | Save                                                           |
+| `Ctrl+F`        | Focus the search box                                           |
 
 While a dialog is open, `Tab` cycles inside it and `Esc` closes the topmost layer. The `+` and the switch on group rows are mouse-only; select the group and use the panel on the right instead.
 
@@ -234,11 +234,20 @@ The data folder always ends with the project code: picking `D://Data` gives `D:/
 
 ```json
 {
-  "language": "zh-CN",
-  "theme": "light",
-  "navigation": { "max_depth": 5, "max_entries": 100 },
-  "translate": { "appid": "", "secret_key": "" },
-  "ai": { "api_key": "", "prompt": "你是一个词典助手，功能如下：…" }
+    "language": "zh-CN",
+    "theme": "light",
+    "navigation": {
+        "max_depth": 5,
+        "max_entries": 100
+    },
+    "translate": {
+        "appid": "",
+        "secret_key": ""
+    },
+    "ai": {
+        "api_key": "",
+        "prompt": "你是一个词典助手，功能如下：…"
+    }
 }
 ```
 
@@ -252,18 +261,22 @@ The root is the group array:
 
 ```json
 [
-  {
-    "name": "Default",
-    "enabled": true,
-    "operations": [
-      {
-        "display": "Operations & help",
-        "type": "file",
-        "keywords": "manager",
-        "arguments": { "path": "manager.bat", "base": "program", "no_window": true }
-      }
-    ]
-  }
+    {
+        "name": "Default",
+        "enabled": true,
+        "operations": [
+            {
+                "display": "Operations & help",
+                "type": "file",
+                "keywords": "manager",
+                "arguments": {
+                    "path": "manager.bat",
+                    "base": "program",
+                    "no_window": true
+                }
+            }
+        ]
+    }
 ]
 ```
 
