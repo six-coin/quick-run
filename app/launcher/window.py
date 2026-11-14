@@ -312,7 +312,8 @@ class SearchWindow(QMainWindow):
 
     def _on_item_clicked(self, item: QListWidgetItem) -> None:
         assert self._result_list is not None
-        self._controller.select(self._visible_start + self._result_list.row(item))
+        # 不要求控制器重绘：视图自己已经选中了这一行，而重绘会打断双击序列。
+        self._controller.select(self._visible_start + self._result_list.row(item), notify=False)
 
     def _on_item_double_clicked(self, item: QListWidgetItem) -> None:
         self._on_item_clicked(item)

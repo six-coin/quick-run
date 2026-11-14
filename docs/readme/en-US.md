@@ -62,7 +62,7 @@ Type a few letters and the list shows operations by **prefix match**; press Ente
 | `Shift+↑` `Shift+↓`                | Browse input history                                                                        |
 | `Ctrl` / `Shift` / `Alt` + `Enter` | For files, open the containing folder instead; for the translation row, read the text aloud |
 
-The input is single-line, and the right-click menu is disabled.
+The input is single-line, and the right-click menu is disabled. Click a row to select it; double-click to run it.
 
 ### 3.2 Selecting by index
 

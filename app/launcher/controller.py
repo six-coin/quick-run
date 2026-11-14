@@ -135,9 +135,17 @@ class LauncherController(QObject):
             self._visible_start = self._selected - VISIBLE_ROWS + 1
         self.rows_changed.emit(self._rows, self._selected, self._visible_start)
 
-    def select(self, index: int) -> None:
-        if 0 <= index < len(self._rows):
-            self._selected = index
+    def select(self, index: int, notify: bool = True) -> None:
+        """把选中项挪到 ``index``。
+
+        ``notify=False`` 给鼠标单击用：视图自己已经把高亮移过去了，再发一次
+        ``rows_changed`` 会整表重绘，而重绘会把 Qt 内部的 ``pressedIndex`` 作废，
+        正在进行中的双击序列因此收不到 ``doubleClicked``——双击执行就失效了。
+        """
+        if not 0 <= index < len(self._rows):
+            return
+        self._selected = index
+        if notify:
             self.rows_changed.emit(self._rows, self._selected, self._visible_start)
 
     # -- 执行 -------------------------------------------------------------
