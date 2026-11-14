@@ -12,9 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 def _run() -> None:
+    from app import bootstrap
     from app.manager.app import main
 
-    main()
+    bootstrap.guard(main, "manage")
 
 
 if __name__ == "__main__":

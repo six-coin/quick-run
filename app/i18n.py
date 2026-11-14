@@ -4,8 +4,11 @@
 语言代码**（``zh-CN.json``、``en-US.json``）。程序启动时扫描这个目录，放进去
 什么语言就支持什么语言，不需要改代码。
 
+列表顺序就是文件名的字典序（``en-US`` 在 ``zh-CN`` 前），**不对中文特判**：
+特判会让「加一种语言」变成「改一处排序代码」。
+
 模板里可以用 ``{name}`` 这样的占位符，通过 ``t("键", name=值)`` 填充；
-占位符缺失时原样返回模板，避免因为一个字段名写错就整条文案报错。
+占位符缺失时原样返回模板，避免因为一个字段名写错就整条报错。
 
 每种语言在文件里用 ``language.name`` 声明自己的显示名（用该语言自己的文字），
 所以新增语言时不必改代码，也不会有语言名散落在程序里。
@@ -13,33 +16,65 @@
 
 from __future__ import annotations
 
+import ctypes
 import json
+import locale
+import os
 from typing import Any
 
 from app import paths
 
-#: 找不到配置或配置非法时使用的语言。
-DEFAULT_LANGUAGE = "zh-CN"
+#: 找不到系统语言时的回退。
+FALLBACK_LANGUAGE = "en-US"
+
+#: 兼容旧名字：默认语言就是回退语言。
+DEFAULT_LANGUAGE = FALLBACK_LANGUAGE
 
 #: 语言包里的语言自称。用它自己的文字书写，界面上直接展示这个值。
 NAME_KEY = "language.name"
 
 _catalog: dict[str, str] = {}
 _fallback: dict[str, str] = {}
-_language = DEFAULT_LANGUAGE
+_language = FALLBACK_LANGUAGE
 _loaded = False
 
 
 def available_languages() -> tuple[str, ...]:
-    """扫描语言目录，返回所有可用的语言代码。
-
-    默认语言排在最前面，其余按字母序。
-    """
+    """扫描语言目录，返回所有可用的语言代码，按文件名排序。"""
     codes = sorted(path.stem for path in paths.LOCALE_DIR.glob("*.json"))
-    if DEFAULT_LANGUAGE in codes:
-        codes.remove(DEFAULT_LANGUAGE)
-        codes.insert(0, DEFAULT_LANGUAGE)
-    return tuple(codes)
+    return tuple(codes) or (FALLBACK_LANGUAGE,)
+
+
+def system_language() -> str:
+    """系统界面语言，映射到已安装的语言代码；都没有就用英语。"""
+    codes = available_languages()
+    candidates: list[str] = []
+    if os.name == "nt":
+        try:
+            lcid = int(ctypes.windll.kernel32.GetUserDefaultUILanguage())
+            name = locale.windows_locale.get(lcid)
+            if name:
+                candidates.append(name.replace("_", "-"))
+        except Exception:  # 取不到系统语言时按下面的环境变量与回退处理
+            pass
+    raw = os.environ.get("LANG") or os.environ.get("LC_ALL") or ""
+    if raw:
+        candidates.append(raw.split(".")[0].replace("_", "-"))
+
+    for code in candidates:
+        if code in codes:
+            return code
+    for code in candidates:
+        primary = code.split("-")[0].lower()
+        for installed in codes:
+            if installed.split("-")[0].lower() == primary:
+                return installed
+    return FALLBACK_LANGUAGE if FALLBACK_LANGUAGE in codes else codes[0]
+
+
+def initial_language() -> str:
+    """第一次启动时的界面语言：系统语言在列表里就用它，否则英语。"""
+    return system_language()
 
 
 def language_names() -> dict[str, str]:
@@ -61,12 +96,12 @@ def language() -> str:
 
 
 def normalize(value: Any) -> str:
-    """把任意输入收敛成受支持的语言代码。"""
+    """把任意输入收敛成受支持的语言代码；不认识的回退英语。"""
     text = str(value or "").strip()
     for code in available_languages():
         if code.lower() == text.lower():
             return code
-    return DEFAULT_LANGUAGE
+    return FALLBACK_LANGUAGE
 
 
 def set_language(value: Any) -> str:
@@ -74,8 +109,8 @@ def set_language(value: Any) -> str:
     global _language, _catalog, _fallback, _loaded
     _language = normalize(value)
     _catalog = _load(_language)
-    # 其他语言缺键时回退到默认语言，保证界面上不会出现裸露的键名。
-    _fallback = _catalog if _language == DEFAULT_LANGUAGE else _load(DEFAULT_LANGUAGE)
+    # 其他语言缺键时回退到英语，保证界面上不会出现裸露的键名。
+    _fallback = _catalog if _language == FALLBACK_LANGUAGE else _load(FALLBACK_LANGUAGE)
     _loaded = True
     return _language
 
@@ -98,7 +133,9 @@ def t(key: str, **kwargs: Any) -> str:
 
 def strings() -> dict[str, str]:
     """返回当前语言的完整文案表，供网页前端使用。"""
-    return dict(_catalog)
+    merged = dict(_load(FALLBACK_LANGUAGE))
+    merged.update(_catalog)
+    return merged
 
 
 def list_separator() -> str:

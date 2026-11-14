@@ -63,8 +63,19 @@ def fatal(message: str) -> None:
         logger.complete()
     except Exception:
         pass
-    _message_box(message, i18n.t("fatal.title_startup"))
+    _message_box(crash_text(message), i18n.t("fatal.title_startup"))
     os._exit(1)
+
+
+def crash_text(message: str) -> str:
+    """崩溃弹窗的正文：错误、时间、日志位置。"""
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    where = str(LOG_FILE or paths.LOG_DIR)
+    return (
+        f"{message}\n\n"
+        f"{i18n.t('fatal.time_line', value=stamp)}\n"
+        f"{i18n.t('fatal.log_line', value=where)}"
+    )
 
 
 def _excepthook(
@@ -81,12 +92,7 @@ def _excepthook(
     except Exception:
         pass
     _message_box(
-        i18n.t(
-            "fatal.unhandled",
-            type=exc_type.__name__,
-            value=exc_value,
-            log=LOG_FILE,
-        ),
+        crash_text(i18n.t("fatal.unexpected", error=f"{exc_type.__name__}: {exc_value}")),
         i18n.t("fatal.title_runtime"),
     )
 

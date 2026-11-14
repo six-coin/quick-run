@@ -200,7 +200,7 @@ def test_app_config_clamps_out_of_range_values(tmp_path):
 
     config = settings.load_app_config(target)
 
-    assert config.language == "zh-CN"
+    assert config.language == "en-US"
     assert config.theme == "light"
     assert config.max_depth == 5
     assert config.max_entries == 1
@@ -209,16 +209,12 @@ def test_app_config_clamps_out_of_range_values(tmp_path):
 def test_animation_durations_are_clamped(tmp_path):
     target = tmp_path / "app.json"
 
-    target.write_text(
-        json.dumps({"animation": {"in_ms": 9999, "out_ms": -5}}), encoding="utf-8"
-    )
+    target.write_text(json.dumps({"animation": {"in_ms": 9999, "out_ms": -5}}), encoding="utf-8")
     config = settings.load_app_config(target)
     assert config.animation_in_ms == settings.ANIMATION_RANGE[1]
     assert config.animation_out_ms == 0
 
-    target.write_text(
-        json.dumps({"animation": {"in_ms": "abc", "out_ms": None}}), encoding="utf-8"
-    )
+    target.write_text(json.dumps({"animation": {"in_ms": "abc", "out_ms": None}}), encoding="utf-8")
     config = settings.load_app_config(target)
     assert config.animation_in_ms == settings.DEFAULT_ANIMATION_IN_MS
     assert config.animation_out_ms == settings.DEFAULT_ANIMATION_OUT_MS

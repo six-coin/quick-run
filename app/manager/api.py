@@ -6,14 +6,16 @@
 
 from __future__ import annotations
 
+import shutil
 import threading
 from typing import Any
 
 import webview
 from loguru import logger
 
-from app import i18n
+from app import i18n, paths
 from app import settings as settings_module
+from app import version as version_module
 from app.manager.dialogs import confirm_unsaved
 from app.models import (
     DEBUG_FUNCTION_VALUES,
@@ -28,14 +30,17 @@ from app.models import (
     type_label,
     validate_groups,
 )
-from app.system.theme import normalize_theme
+from app.system.theme import normalize_theme, system_theme
 
 #: 分组名为空时使用的兜底文案键。刻意起得中性一点，避免看起来像程序内置的分组。
 FALLBACK_GROUP_NAME_KEY = "manager.unnamed_group"
 
 
 class ManagerApi:
-    def __init__(self) -> None:
+    def __init__(self, first_run: bool = False, redirected_from: str = "") -> None:
+        # 必须在 load_app_config() 之前判断：它会把默认配置写到磁盘。
+        self.first_run = first_run
+        self.redirected_from = redirected_from
         self._config = settings_module.load_app_config()
         i18n.set_language(self._config.language)
 
@@ -43,6 +48,7 @@ class ManagerApi:
         self._dirty = False
         self._errors: list[dict[str, Any]] = []
         self._window = None
+        self._restart = False
 
         self._sel_kind = "none"
         self._sel_group = 0
@@ -56,6 +62,11 @@ class ManagerApi:
 
     def attach(self, window) -> None:
         self._window = window
+
+    @property
+    def restart_requested(self) -> bool:
+        """窗口已经关掉、进程马上要重启。"""
+        return self._restart
 
     def _retitle(self) -> None:
         """窗口标题跟着界面语言走。
@@ -97,6 +108,9 @@ class ManagerApi:
             "translate_appid": self._config.translate_appid,
             "translate_secret": self._config.translate_secret,
             "ai_api_key": self._config.ai_api_key,
+            "version": version_module.version(),
+            "data_dir": str(paths.DATA_DIR),
+            "data_dir_next": str(paths.read_data_dir()),
             "languages": [
                 {"value": code, "label": label} for code, label in i18n.language_names().items()
             ],
@@ -359,6 +373,70 @@ class ManagerApi:
         )
         return self._state(ok=True, message=message)
 
+    # -- 关于 -------------------------------------------------------------
+    def complete_first_run(self, language: str) -> dict[str, Any]:
+        """首次启动选完语言：语言落盘，外观按系统偏好定一次。"""
+        self._config.language = i18n.set_language(language)
+        self._config.theme = system_theme()
+        self._persist_config()
+        self.first_run = False
+        self._retitle()
+        return self._state()
+
+    def get_readme(self) -> dict[str, Any]:
+        """当前语言的使用手册；没有这一份就退回英文。"""
+        language = i18n.language()
+        path = paths.PROGRAM_DIR / "docs" / "readme" / f"{language}.md"
+        if not path.is_file():
+            language = i18n.FALLBACK_LANGUAGE
+            path = paths.PROGRAM_DIR / "docs" / "readme" / f"{language}.md"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            text = ""
+        return {"language": language, "markdown": text}
+
+    def reset_settings(self) -> dict[str, Any]:
+        """恢复出厂设置。语言与外观一起重置，操作列表不受影响。"""
+        self._config = settings_module.AppConfig(
+            theme=system_theme(), language=i18n.initial_language()
+        )
+        self._persist_config()
+        i18n.set_language(self._config.language)
+        self._retitle()
+        state = self._state()
+        state["message"] = i18n.t("about.reset_done")
+        return state
+
+    def set_data_dir(self, raw: str) -> dict[str, Any]:
+        """改数据目录：写指针，下次启动生效。应用配置复制一份过去。"""
+        target = paths.resolve_user_path(str(raw))
+        if target == paths.DATA_DIR:
+            return self._state()
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            destination = target / paths.APP_CONFIG_PATH.name
+            if not destination.exists() and paths.APP_CONFIG_PATH.exists():
+                shutil.copy2(paths.APP_CONFIG_PATH, destination)
+            paths.write_data_dir(target)
+        except OSError as error:
+            return self._state(ok=False, message=i18n.t("about.data_dir_failed", error=error))
+        return self._state(message=i18n.t("about.restart_hint"))
+
+    def restart_app(self) -> dict[str, Any]:
+        """关掉窗口，由入口在释放单实例锁之后拉起新进程。"""
+        self._restart = True
+        threading.Timer(0.2, self._close_window).start()
+        return {"ok": True}
+
+    def _close_window(self) -> None:
+        if self._window is None:
+            return
+        try:
+            self._window.destroy()
+        except Exception as error:  # 窗口已经关了或平台不支持
+            logger.debug("关闭窗口失败：{}", error)
+
     # -- 对话框 -----------------------------------------------------------
     def browse_file(self) -> str:
         return self._pick(webview.FileDialog.OPEN)
@@ -503,7 +581,15 @@ class ManagerApi:
                 for name in ("display", "type", "keywords", "path", "dir", "url", "command")
             },
             "language": self._config.language,
+            "languages": [
+                {"value": code, "label": label} for code, label in i18n.language_names().items()
+            ],
             "theme": self._config.theme,
+            "version": version_module.version(),
+            "first_run": self.first_run,
+            "redirected_from": self.redirected_from,
+            "data_dir": str(paths.DATA_DIR),
+            "data_dir_next": str(paths.read_data_dir()),
             "navigation": {
                 "max_depth": self._config.max_depth,
                 "max_entries": self._config.max_entries,

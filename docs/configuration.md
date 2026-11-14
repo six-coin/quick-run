@@ -1,8 +1,18 @@
 # 配置与数据格式
 
-程序只认两个配置文件，都在 `config/` 下。两者都是 UTF-8 的 JSON，写入使用「临时文件 + `os.replace`」的原子替换，中途崩溃不会留下写了一半的文件。
+程序只认两个配置文件，都在**数据目录**下（默认 `%PROGRAMDATA%\six-coin\quick-run`）。两者都是 UTF-8 的 JSON，写入使用「临时文件 + `os.replace`」的原子替换，中途崩溃不会留下写了一半的文件。
 
 首次启动时若文件不存在，会自动生成一份可用的示例内容。
+
+| 位置 | 内容 |
+|---|---|
+| `<数据目录>\app.json` | 应用设置 |
+| `<数据目录>\operations.json` | 操作与分组 |
+| `<数据目录>\custom\` | 用户脚本与素材 |
+| `%LOCALAPPDATA%\six-coin\quick-run\data-dir.txt` | 数据目录指针，改目录后写这里 |
+| `%LOCALAPPDATA%\six-coin\quick-run\logs\` | 日志 |
+
+数据目录在设置页「关于」里改，**重启后生效**；只把 `app.json` 复制到新目录，`custom/` 与 `operations.json` 不自动搬。
 
 ## 1. `app.json`
 
@@ -32,8 +42,8 @@
 
 | 字段 | 类型 | 默认 | 取值与行为 |
 |---|---|---|---|
-| `language` | 字符串 | `"zh-CN"` | `app/locales` 下已有的语言代码；其他值回退 `zh-CN` |
-| `theme` | 字符串 | 系统偏好 | `light` / `dark`；其他值回退 `light` |
+| `language` | 字符串 | 系统语言 | `app/locales` 下已有的语言代码；没有匹配或无法识别时回退 `en-US` |
+| `theme` | 字符串 | 系统偏好 | `light` / `dark`，没有 `system`；首次启动读一次系统偏好，旧值 `system` 在读取时定成当时的浅色/深色 |
 | `animation.in_ms` | 整数 | `150` | 0–1000，越界夹取；0 表示不做动画；非数字回退 150 |
 | `animation.out_ms` | 整数 | `150` | 同上，管收起时的淡出 |
 | `navigation.max_depth` | 整数 | `5` | 0–5，越界夹取；非数字回退 5 |
@@ -168,7 +178,7 @@
 
 ## 5. 日志
 
-`logs/main_*.log` 与 `logs/manage_*.log`，每次启动新建一个。单个文件超过 5 MB 轮转，保留 14 天。
+`%LOCALAPPDATA%\six-coin\quick-run\logs\main_*.log` 与 `manage_*.log`，每次启动新建一个。单个文件超过 5 MB 轮转，保留 14 天。
 
 格式：
 

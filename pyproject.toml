@@ -1,7 +1,7 @@
 [project]
 name = "quick-run"
 version = "1.0.0.dev2"
-description = "Windows 上的快速启动器与操作管理器。"
+description = "A keyboard launcher for Windows: press Alt+Space, type a few letters, and open a file, a folder, a web page or run a command. The bundled Quick Run Manager maintains that list through a web UI."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

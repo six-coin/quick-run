@@ -12,7 +12,7 @@ from loguru import logger
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication
 
-from app import i18n, logging_setup
+from app import bootstrap, i18n, logging_setup
 from app.core.actions import ActionExecutor
 from app.core.catalog import Catalog
 from app.core.navigation import DirectoryNavigator
@@ -28,6 +28,7 @@ from app.settings import load_settings
 from app.system.clipboard import PyperclipClipboard
 from app.system.hotkey import HotkeyListener
 from app.system.shell import WindowsOpener
+from app.system.single import MAIN_MUTEX, InstanceLock
 
 
 class _HotkeyBridge(QObject):
@@ -37,7 +38,23 @@ class _HotkeyBridge(QObject):
 
 
 def main() -> None:
+    warnings = bootstrap.prepare()
+    if bootstrap.is_first_run():
+        # 第一次运行还没有配置：先把管理器拉起来做初始设置。
+        bootstrap.launch_manager("main")
+        return
+
     logging_setup.setup("main")
+    for warning in warnings:
+        logging_setup.logger.warning(warning)
+
+    lock = InstanceLock(MAIN_MUTEX)
+    if not lock.acquire():
+        bootstrap.sync_language()
+        logger.info("启动器已在运行，退出本次启动")
+        bootstrap.info(i18n.t("launcher.already_running"), i18n.t("app.title"))
+        return
+
     try:
         _run()
     except SystemExit:
@@ -45,6 +62,8 @@ def main() -> None:
     except Exception as error:  # 最后一道防线，直接弹窗
         logger.exception("程序启动失败")
         logging_setup.fatal(i18n.t("fatal.startup", error=error))
+    finally:
+        lock.release()
 
 
 def _run() -> None:

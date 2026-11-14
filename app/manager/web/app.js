@@ -1057,7 +1057,20 @@
     $('set-appid').value = settings.translate_appid || '';
     $('set-secret').value = settings.translate_secret || '';
     $('set-ai').value = settings.ai_api_key || '';
+    renderAbout(settings);
     renderSettingsHints();
+  }
+
+  function renderAbout(settings) {
+    $('about-version').textContent = settings.version || '';
+    $('about-data-dir').textContent = settings.data_dir || '';
+    $('about-data-dir').title = settings.data_dir || '';
+
+    const pending = settings.data_dir_next && settings.data_dir_next !== settings.data_dir;
+    $('btn-about-restart').classList.toggle('hidden', !pending);
+    $('about-data-hint').textContent = pending
+      ? T('about.data_dir_pending', { path: settings.data_dir_next })
+      : T('about.data_dir_hint');
   }
 
   function renderSettingsHints() {
@@ -1362,6 +1375,15 @@
     $('btn-settings-done').addEventListener('click', function () {
       closeModal('modal-settings');
     });
+    $('btn-about-readme').addEventListener('click', openAboutReadme);
+    $('btn-about-reset').addEventListener('click', confirmResetSettings);
+    $('btn-about-data-dir').addEventListener('click', changeDataDir);
+    $('btn-about-restart').addEventListener('click', function () {
+      call('restart_app');
+    });
+    $('sheet-close').addEventListener('click', function () {
+      closeSheet(null);
+    });
     bindSettingInput('set-depth', 'max_depth', true);
     bindSettingInput('set-entries', 'max_entries', true);
     bindSettingInput('set-animation-in', 'animation_in_ms', true);
@@ -1542,6 +1564,338 @@
     });
   }
 
+  // -- 内容弹窗与使用说明 -----------------------------------------------
+  let sheetResolve = null;
+
+  function openSheet(options) {
+    return new Promise(function (resolve) {
+      sheetResolve = resolve;
+      $('sheet-title').textContent = options.title || '';
+      $('sheet-body').innerHTML = options.html || '';
+      $('sheet-body').scrollTop = 0;
+      $('sheet-actions').innerHTML = '';
+
+      (options.actions || [{ label: T('settings.done'), value: true, primary: true }]).forEach(
+        function (action) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn ' + (action.primary ? 'primary' : 'ghost');
+          button.textContent = action.label;
+          button.addEventListener('click', function () {
+            closeSheet(action.value);
+          });
+          $('sheet-actions').appendChild(button);
+        }
+      );
+
+      $('sheet-close').hidden = options.dismissible === false;
+      openModal('modal-sheet');
+    });
+  }
+
+  function closeSheet(value) {
+    hideModal('modal-sheet');
+    const resolve = sheetResolve;
+    sheetResolve = null;
+    if (resolve) resolve(value);
+  }
+
+  function mdEscape(value) {
+    return String(value === undefined || value === null ? '' : value).replace(
+      /[&<>"']/g,
+      function (char) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;',
+        }[char];
+      }
+    );
+  }
+
+  function mdInline(text) {
+    const codes = [];
+    let out = mdEscape(text).replace(/`([^`]+)`/g, function (match, code) {
+      codes.push(code);
+      return '\u0000' + (codes.length - 1) + '\u0000';
+    });
+    out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
+    out = out.replace(/\u0000(\d+)\u0000/g, function (match, index) {
+      return '<code>' + codes[Number(index)] + '</code>';
+    });
+    return out;
+  }
+
+  function mdRow(line) {
+    return line
+      .trim()
+      .replace(/^\|/, '')
+      .replace(/\|$/, '')
+      .split('|')
+      .map(function (cell) {
+        return cell.trim();
+      });
+  }
+
+  /** 只覆盖手册里实际用到的语法：标题、段落、列表、表格、代码块、引用、分隔线。 */
+  function renderMarkdown(text) {
+    const lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+    const out = [];
+    let paragraph = [];
+    let index = 0;
+
+    function flush() {
+      if (!paragraph.length) return;
+      out.push('<p>' + mdInline(paragraph.join(' ')) + '</p>');
+      paragraph = [];
+    }
+
+    while (index < lines.length) {
+      const line = lines[index];
+
+      if (/^```/.test(line)) {
+        flush();
+        index += 1;
+        const code = [];
+        while (index < lines.length && !/^```/.test(lines[index])) code.push(lines[index++]);
+        index += 1;
+        out.push('<pre><code>' + mdEscape(code.join('\n')) + '</code></pre>');
+        continue;
+      }
+
+      if (!line.trim()) {
+        flush();
+        index += 1;
+        continue;
+      }
+
+      const heading = /^(#{1,6})\s+(.*)$/.exec(line);
+      if (heading) {
+        flush();
+        const level = Math.min(6, heading[1].length + 1);
+        out.push('<h' + level + '>' + mdInline(heading[2].trim()) + '</h' + level + '>');
+        index += 1;
+        continue;
+      }
+
+      if (
+        /^\s*\|/.test(line) &&
+        index + 1 < lines.length &&
+        /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[index + 1])
+      ) {
+        flush();
+        const header = mdRow(line);
+        index += 2;
+        const rows = [];
+        while (index < lines.length && /^\s*\|/.test(lines[index])) rows.push(mdRow(lines[index++]));
+        out.push(
+          '<table><thead><tr>' +
+            header
+              .map(function (cell) {
+                return '<th>' + mdInline(cell) + '</th>';
+              })
+              .join('') +
+            '</tr></thead><tbody>' +
+            rows
+              .map(function (row) {
+                return (
+                  '<tr>' +
+                  row
+                    .map(function (cell) {
+                      return '<td>' + mdInline(cell) + '</td>';
+                    })
+                    .join('') +
+                  '</tr>'
+                );
+              })
+              .join('') +
+            '</tbody></table>'
+        );
+        continue;
+      }
+
+      if (/^\s*[-*]\s+/.test(line)) {
+        flush();
+        const items = [];
+        while (index < lines.length && /^\s*[-*]\s+/.test(lines[index])) {
+          items.push(lines[index].replace(/^\s*[-*]\s+/, ''));
+          index += 1;
+        }
+        out.push(
+          '<ul>' +
+            items
+              .map(function (item) {
+                return '<li>' + mdInline(item) + '</li>';
+              })
+              .join('') +
+            '</ul>'
+        );
+        continue;
+      }
+
+      if (/^\s*\d+\.\s+/.test(line)) {
+        flush();
+        const items = [];
+        while (index < lines.length && /^\s*\d+\.\s+/.test(line)) {
+          items.push(lines[index].replace(/^\s*\d+\.\s+/, ''));
+          index += 1;
+        }
+        out.push(
+          '<ol>' +
+            items
+              .map(function (item) {
+                return '<li>' + mdInline(item) + '</li>';
+              })
+              .join('') +
+            '</ol>'
+        );
+        continue;
+      }
+
+      if (/^>\s?/.test(line)) {
+        flush();
+        out.push('<blockquote>' + mdInline(line.replace(/^>\s?/, '')) + '</blockquote>');
+        index += 1;
+        continue;
+      }
+
+      if (/^\s*(---+|\*\*\*+)\s*$/.test(line)) {
+        flush();
+        out.push('<hr>');
+        index += 1;
+        continue;
+      }
+
+      paragraph.push(line.trim());
+      index += 1;
+    }
+
+    flush();
+    return '<div class="md">' + out.join('\n') + '</div>';
+  }
+
+  async function openAboutReadme() {
+    const readme = await call('get_readme');
+    const body =
+      readme && readme.markdown
+        ? renderMarkdown(readme.markdown)
+        : '<p class="hint">' + mdEscape(T('about.readme_missing')) + '</p>';
+    await openSheet({
+      title: T('about.readme_title'),
+      html: body,
+      actions: [{ label: T('settings.done'), value: true, primary: true }],
+    });
+  }
+
+  async function confirmResetSettings() {
+    const choice = await openSheet({
+      title: T('about.reset'),
+      html: '<p>' + mdEscape(T('about.reset_confirm')) + '</p>',
+      actions: [
+        { label: T('manager.cancel'), value: 'cancel' },
+        { label: T('about.reset'), value: 'ok', primary: true },
+      ],
+    });
+    if (choice !== 'ok') return;
+    const snapshot = await call('reset_settings');
+    if (!snapshot) return;
+    await loadStrings();
+    applyStrings();
+    apply(snapshot);
+    const settings = await call('get_settings');
+    if (settings) {
+      state.settings = settings;
+      renderSettings();
+    }
+    if (snapshot.message) toast(snapshot.message, true);
+  }
+
+  async function changeDataDir() {
+    const picked = await call('browse_dir');
+    if (!picked) return;
+    const snapshot = await call('set_data_dir', picked);
+    if (!snapshot) return;
+    apply(snapshot);
+    const settings = await call('get_settings');
+    if (settings) {
+      state.settings = settings;
+      renderSettings();
+    }
+    if (snapshot.message) toast(snapshot.message, snapshot.ok !== false);
+  }
+
+  async function runFirstRun() {
+    const data = state.data;
+    const options = (data.languages || [])
+      .map(function (item) {
+        return (
+          '<option value="' +
+          mdEscape(item.value) +
+          '"' +
+          (item.value === data.language ? ' selected' : '') +
+          '>' +
+          mdEscape(item.label) +
+          '</option>'
+        );
+      })
+      .join('');
+
+    const choice = await openSheet({
+      title: T('firstrun.title'),
+      dismissible: false,
+      html:
+        '<p>' + mdEscape(T('firstrun.text')) + '</p>' +
+        '<div class="field"><label for="firstrun-language">' +
+        mdEscape(T('firstrun.title')) +
+        '</label><select id="firstrun-language" class="input">' +
+        options +
+        '</select></div>',
+      actions: [{ label: T('firstrun.start'), value: 'go', primary: true }],
+    });
+    if (choice !== 'go') return;
+
+    const select = $('firstrun-language');
+    const snapshot = await call('complete_first_run', select ? select.value : data.language);
+    if (snapshot) {
+      await loadStrings();
+      applyStrings();
+      apply(snapshot);
+    }
+    await showFirstRunReadme(data.redirected_from);
+  }
+
+  async function showFirstRunReadme(redirected) {
+    const readme = await call('get_readme');
+    const body =
+      readme && readme.markdown
+        ? renderMarkdown(readme.markdown)
+        : '<p class="hint">' + mdEscape(T('about.readme_missing')) + '</p>';
+    const choice = await openSheet({
+      title: T('firstrun.readme_title'),
+      dismissible: false,
+      html: '<p>' + mdEscape(T('firstrun.readme_text')) + '</p>' + body,
+      actions: [{ label: T('firstrun.readme_close'), value: 'ok', primary: true }],
+    });
+    if (choice && redirected) showRedirectNote(redirected);
+  }
+
+  function showRedirectNote(origin) {
+    const key = 'firstrun.origin.' + origin;
+    const label = state.strings[key] ? T(key) : origin;
+    openSheet({
+      title: T('firstrun.redirect_title'),
+      dismissible: false,
+      html:
+        '<p>' +
+        mdEscape(T('firstrun.redirect_text', { origin: label, manager: T('manager.title') })) +
+        '</p>',
+      actions: [{ label: T('firstrun.readme_close'), value: true, primary: true }],
+    });
+  }
+
   // -- 关闭握手 -----------------------------------------------------------
   /**
    * Python 在原生 ``closing`` 回调里碰不了网页（会死锁），所以它取消关闭、
@@ -1575,6 +1929,7 @@
     await loadStrings();
     applyStrings();
     apply(await call('get_state'));
+    if (state.data && state.data.first_run) await runFirstRun();
     focusSearch();
   }
 

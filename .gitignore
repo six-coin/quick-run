@@ -15,8 +15,3 @@ wheels/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
-
-# 用户数据
-logs/
-custom/
-config/

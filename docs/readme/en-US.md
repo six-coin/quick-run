@@ -1,10 +1,8 @@
 # Quick Run User Manual
 
-A keyboard launcher for Windows: press `Alt+Space`, type a few letters, and open a file, a folder, a web page or run a command. The bundled **Quick Run Manager** maintains that list through a web UI.
+A keyboard launcher for Windows: press Alt+Space, type a few letters, and open a file, a folder, a web page or run a command. The bundled Quick Run Manager maintains that list through a web UI.
 
 [简体中文](zh-CN.md)
-
-[Back to project home](../../README.md) · [Architecture](../architecture.md) · [Configuration & data formats](../configuration.md)
 
 ---
 
@@ -44,6 +42,10 @@ To start the launcher at login, put a shortcut to `main.bat` in
 `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`.
 
 > The launcher is a background process. Double-clicking `main.bat` shows nothing on screen — that is expected. Press `Alt+Space` to bring it up.
+
+On the **first run**, whichever entry point you double-click opens the manager instead: pick the interface language (the Windows UI language by default, English when there is no matching locale), then read the manual. If you started `main.bat`, one extra note explains that the manager is what just opened. Close it and start your original entry point again when you are done.
+
+Both entry points are single-instance: starting `main.bat` twice shows "already running"; opening the manager again brings the existing window to the front.
 
 ## 3. Launcher
 
@@ -149,14 +151,16 @@ Click the gear at the right of the title bar:
 
 | Item | Description |
 |---|---|
-| Language | Simplified Chinese (China) / English (US) built in; switching applies immediately |
-| Appearance | Light / dark. The first launch follows the system, afterwards this value wins |
+| Language | System language | Simplified Chinese (China) / English (US) built in; switching applies immediately; the list is sorted by language code |
+| Appearance | System theme | Light or dark only; the system preference is read once on the first run, then the setting wins |
 | Fade in | Milliseconds for the launcher's fade-in, 0–1000; 0 disables the animation. Restart the launcher to apply |
 | Fade out | Milliseconds for the fade-out, same rules |
 | Max scan depth | Global depth limit for folder browsing, 0–5 |
 | Max entries per folder | Folders with more entries are not expanded, keeping the UI responsive |
 | Baidu Translate | Translation is enabled only when both `appid` and secret key are set |
 | AI definition | Enabled once an API key is filled in |
+
+The last section of Settings is "About": version, data folder (changeable; restart to apply, with a "Restart now" button), user manual and reset all settings. Reset also restores language and appearance; the operation list is untouched.
 
 Secret fields are masked by default; click the eye icon to reveal them temporarily.
 
@@ -179,14 +183,23 @@ While a dialog is open, `Tab` cycles inside it and `Esc` closes it. The `+` and 
 
 ## 5. Configuration and data
 
+The program folder holds code and `setup.bat` only; runtime files live in system folders.
+
 ```
-config/app.json          application settings
-config/operations.json   operations and groups
-logs/                    runtime logs
-custom/                  your own scripts and assets (relative paths resolve against the program directory)
+%PROGRAMDATA%\six-coin\quick-run\       data folder (configurable)
+├─ app.json                             application settings
+├─ operations.json                      operations and groups
+└─ custom\                              your own scripts and assets (relative paths resolve against the data folder)
+
+%LOCALAPPDATA%\six-coin\quick-run\
+├─ logs\                                runtime logs
+├─ locks\                               locks
+└─ data-dir.txt                         data folder pointer
+
+%TEMP%\six-coin\quick-run\              temp folder, safe to delete
 ```
 
-`config/`, `logs/` and `custom/` are local data and are excluded in `.gitignore`. Delete `config/` and the next launch regenerates a sample configuration.
+The old `config/`, `custom/` and `logs/` folders left in the program directory are moved to the locations above the first time the new version starts. Delete `<data>\app.json` and the next launch asks for a language again and regenerates the defaults.
 
 ### 5.1 app.json
 
@@ -200,7 +213,7 @@ custom/                  your own scripts and assets (relative paths resolve aga
 }
 ```
 
-`language` must be a code that exists in `app/locales`. `theme` is seeded from the system preference only when the file does not exist; afterwards the file wins.
+`language` must be a code that exists in `app/locales`; anything else falls back to `en-US`. `theme` is `light` or `dark` only; it is seeded from the system preference when the file does not exist, afterwards the file wins.
 
 ### 5.2 operations.json
 
@@ -227,7 +240,7 @@ See [4.2](#42-operation-types) and [4.3](#43-match-keywords) for the fields. Aft
 
 ### 5.3 Logs
 
-Each launch creates one log file, `logs/main_*.log` or `logs/manage_*.log`. A file rotates after 5 MB and is kept for 14 days. If the program dies unexpectedly, a dialog points at the log file.
+Each launch creates one log file, `%LOCALAPPDATA%\six-coin\quick-run\logs\main_*.log` or `manage_*.log`. A file rotates after 5 MB and is kept for 14 days. If the program dies unexpectedly, a dialog shows the time, the error and the log path.
 
 ## 6. Languages
 
@@ -272,7 +285,7 @@ Speech requires python-vlc and the VLC desktop player. Without them the program 
 The launcher reads configuration once at startup; restart `main.bat`. Switching inside the manager is immediate.
 
 **I want the default configuration back**
-Close the program, delete the `config/` directory, and start again.
+Close the program, delete `%PROGRAMDATA%\six-coin\quick-run\app.json` and `operations.json`, then start again.
 
 ## 8. Development
 

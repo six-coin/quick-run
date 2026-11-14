@@ -1,4 +1,8 @@
-"""操作管理器的入口（pywebview）。"""
+"""操作管理器的入口（pywebview）。
+
+启动顺序：目录准备 → 单实例 → 日志 → API → 窗口。关窗后如果用户点过
+「立即重启」，由这里在释放单实例锁之后拉起新进程。
+"""
 
 from __future__ import annotations
 
@@ -7,22 +11,48 @@ import ctypes
 import webview
 from loguru import logger
 
-from app import i18n, logging_setup, paths
+from app import bootstrap, i18n, logging_setup, paths
 from app.errors import ConfigError
 from app.manager.api import ManagerApi
+from app.system.single import MANAGER_MUTEX, InstanceLock, activate_window
 
 #: 网页首帧渲染出来之前，窗口用这个底色，避免闪一下白。
 _BACKGROUND = {"light": "#f0f2f5", "dark": "#14161a"}
 
 
 def main() -> None:
-    logging_setup.setup("manage")
+    warnings = bootstrap.prepare()
 
+    lock = InstanceLock(MANAGER_MUTEX)
+    if not lock.acquire():
+        bootstrap.sync_language()
+        logger.info("管理器已在运行，退出本次启动")
+        if not activate_window(i18n.t("manager.title")):
+            bootstrap.info(i18n.t("manager.already_running"), i18n.t("manager.title"))
+        return
+
+    api: ManagerApi | None = None
     try:
-        api = ManagerApi()
+        api = _run(warnings)
+    finally:
+        lock.release()
+
+    if api is not None and api.restart_requested:
+        bootstrap.restart_manager()
+
+
+def _run(warnings: list[str]) -> ManagerApi | None:
+    logging_setup.setup("manage")
+    for warning in warnings:
+        logger.warning(warning)
+
+    first_run = bootstrap.is_first_run()
+    redirected = bootstrap.redirected_from()
+    try:
+        api = ManagerApi(first_run=first_run, redirected_from=redirected)
     except ConfigError as error:
         logging_setup.fatal(i18n.t("fatal.config", error=error))
-        return
+        return None
 
     width, height = _window_size()
     min_width, min_height = _min_size()
@@ -42,6 +72,7 @@ def main() -> None:
 
     logger.info("管理器已就绪")
     webview.start()
+    return api
 
 
 def _make_closing_handler(api: ManagerApi):

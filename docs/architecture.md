@@ -32,6 +32,9 @@ setup.bat                     安装依赖
 app/
 ├─ paths.py                  全部路径的唯一来源
 ├─ errors.py                 异常类型
+├─ paths.py                  四类系统目录、旧数据迁移
+├─ version.py                从 pyproject.toml 读版本
+├─ bootstrap.py              迁移、首次运行、重启、提示框
 ├─ models.py                 领域模型：Operation / OperationGroup / 字段校验
 ├─ settings.py               配置读写与校验
 ├─ i18n.py                   文案查表
@@ -51,6 +54,7 @@ app/
 │  ├─ hotkey.py              全局热键线程
 │  ├─ taskbar.py             全屏时隐藏任务栏
 │  ├─ clipboard.py           剪贴板
+│  ├─ single.py              单实例互斥量、窗口唤醒
 │  └─ theme.py               读取系统明暗偏好
 ├─ launcher/                 Qt 启动器
 │  ├─ app.py                 组装根
@@ -259,24 +263,35 @@ closing 回调（UI 线程）
 
 ## 8. 路径与工作目录
 
-`app/paths.py` 是唯一允许推导路径的地方：
+`app/paths.py` 是唯一允许推导路径的地方。四类位置：
 
-```python
-PACKAGE_DIR = Path(__file__).resolve().parent
-PROGRAM_DIR = PACKAGE_DIR.parent
-```
+| 位置 | 内容 | 默认 |
+|---|---|---|
+| 程序目录 | 代码、`setup.bat`、各入口 `.bat` | 仓库根目录 |
+| 数据目录 | `app.json`、`operations.json`、`custom/` | `%PROGRAMDATA%\six-coin\quick-run` |
+| 本地目录 | `logs/`、`locks/`、`data-dir.txt` | `%LOCALAPPDATA%\six-coin\quick-run` |
+| 临时目录 | 可随时丢弃的中间文件 | `%TEMP%\six-coin\quick-run` |
 
-- 配置里的相对路径（如 `custom\clear_clipboard.py`）以 `PROGRAM_DIR` 为基准解析，与进程 cwd 无关。
+- 配置里的相对路径（如 `custom\clear_clipboard.py`）以**数据目录**为基准解析，与进程 cwd 无关；换盘符不会失效。
+- 数据目录可在设置里改，指针写在本地目录的 `data-dir.txt`，重启后生效。
+- 旧版本留在程序目录里的 `config/`、`custom/`、`logs/` 由 `paths.migrate_legacy()` 在启动最前面搬走。
 - 启动子进程时，工作目录用参数传递：`subprocess.Popen(..., cwd=...)`、`os.startfile(path, cwd=...)`、`ShellExecuteW(..., lpDirectory=...)`。
 - 日志与配置永远写绝对路径。
 
 `test_no_chdir_anywhere` 会扫描 `app/` 下所有文件，出现任何 `chdir` 调用即失败。
 
+### 8.1 版本与首次运行
+
+- 版本号只有 `pyproject.toml` 一处，`app/version.py` 读它；`app/__init__.py` 不再写 `__version__`。
+- `bootstrap.is_first_run()` 的判据是数据目录里没有 `app.json`。
+- 首次运行：启动器 → 自动拉起管理器（带 `--redirected-from main`）；管理器依次弹语言下拉框、使用说明，最后解释「你打开的不是这个程序」。
+- 两个入口各持一个 `Local\SixCoin.QuickRun.*` 互斥量；重启按钮走「释放锁 → 拉新进程」。
+
 ## 9. 本地化
 
 - 文案键放在 `app/locales/{语言代码}.json`，**文件名就是语言代码**（`zh-CN.json`、`en-US.json`）。
-- `i18n.available_languages()` 扫描该目录，放进去什么语言就支持什么语言；`normalize()` 负责把配置里的值收敛到已发现的代码，认不出来时回退 `zh-CN`。
-- `i18n.t("键", 占位符=值)` 查表并填充；其他语言缺键时回退 `zh-CN`，界面不会出现裸露的键名。
+- `i18n.available_languages()` 扫描该目录，放进去什么语言就支持什么语言，**按文件名排序、不对中文特判**；`normalize()` 负责把配置里的值收敛到已发现的代码，认不出来时回退 `en-US`。
+- `i18n.t("键", 占位符=值)` 查表并填充；其他语言缺键时回退 `en-US`，界面不会出现裸露的键名。
 - 语言在界面上的显示名由 `i18n.language_names()` 从各语言包的 `language.name` 读取（用该语言自己的文字），程序里没有硬编码的名称表；该键缺失时直接用代码本身。
 - 类型、字段、调试动作的显示名由函数生成（`type_label()` 等），不缓存成模块级字典——否则导入时就把语言固定了。
 - 管理器的静态文案用 `data-i18n` / `data-i18n-placeholder` / `data-i18n-title` / `data-i18n-aria` 标记，启动时统一替换；动态文案用 `get_strings()` 拉到的表在 JS 里查。

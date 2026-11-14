@@ -61,7 +61,7 @@ class AppConfig:
     ``config.navigation.max_depth`` 地点下去。
     """
 
-    language: str = i18n.DEFAULT_LANGUAGE
+    language: str = i18n.FALLBACK_LANGUAGE
     theme: str = "light"
     animation_in_ms: int = DEFAULT_ANIMATION_IN_MS
     animation_out_ms: int = DEFAULT_ANIMATION_OUT_MS
@@ -196,7 +196,8 @@ def load_app_config(path: Path | None = None) -> AppConfig:
     target = Path(path) if path is not None else paths.APP_CONFIG_PATH
 
     if not target.exists():
-        config = AppConfig(theme=system_theme())
+        # 第一次启动：语言按系统语言定一次，外观按系统主题定一次。
+        config = AppConfig(theme=system_theme(), language=i18n.initial_language())
         _write_json(target, config.to_dict())
         logger.info("已生成默认配置：{}", target)
         return config

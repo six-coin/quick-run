@@ -22,6 +22,7 @@ def make_group(name: str, count: int = 0, enabled: bool = True) -> OperationGrou
 
 def make_api(monkeypatch, groups: list[OperationGroup]):
     config = api_module.settings_module.AppConfig()
+    config.language = "zh-CN"
     monkeypatch.setattr(api_module.settings_module, "load_app_config", lambda path=None: config)
     monkeypatch.setattr(api_module.settings_module, "load_groups", lambda path=None: groups)
     monkeypatch.setattr(api_module.settings_module, "save_groups", lambda *a, **k: None)
