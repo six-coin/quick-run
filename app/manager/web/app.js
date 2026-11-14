@@ -93,6 +93,7 @@
     renderDepthHint();
     renderSettingsHints();
     syncSecretToggles();
+    updatePathPlaceholders();
   }
 
   function renderDepthHint() {
@@ -653,7 +654,7 @@
     $('f-url').value = args.url || '';
     $('f-command').value = args.command || '';
     setSelectValue('f-function', args.function || 'restart');
-    const base = args.base || 'program';
+    const base = args.base || 'absolute';
     setSelectValue('f-base-file', base);
     setSelectValue('f-base-dir', base);
 
@@ -661,6 +662,15 @@
     $('btn-down').disabled = operation.index === currentGroup().operations.length - 1;
 
     updateDepthVisibility();
+    updatePathPlaceholders();
+  }
+
+  /** 文件 / 文件夹路径的提示语跟着「路径基准」走，每种基准给一个像样的例子。 */
+  function updatePathPlaceholders() {
+    const fileBase = $('f-base-file').dataset.value || 'absolute';
+    const dirBase = $('f-base-dir').dataset.value || 'absolute';
+    $('f-path').placeholder = T('placeholder.path.' + fileBase);
+    $('f-dir').placeholder = T('placeholder.dir.' + dirBase);
   }
 
   function renderDirty(dirty) {
@@ -768,24 +778,10 @@
     const position = state.modals.indexOf(id);
     if (position >= 0) state.modals.splice(position, 1);
     state.modals.push(id);
-    syncBackdrops();
     // 弹窗打开时背景整体不可交互，Tab 也就进不去了。
     $('app').inert = true;
     const card = element.querySelector('.modal-card');
     if (card) card.focus();
-  }
-
-  /**
-   * 只有最底层那层画遮罩。
-   *
-   * 遮罩是半透明的，叠两层就会黑得不透明；叠着开的时候让上层只负责压住
-   * 下面那层弹窗，整页的暗度保持和只开一个弹窗时一样。
-   */
-  function syncBackdrops() {
-    state.modals.forEach(function (id, index) {
-      const element = $(id);
-      if (element) element.classList.toggle('no-backdrop', index > 0);
-    });
   }
 
   function hideModal(id) {
@@ -801,7 +797,6 @@
       element.classList.remove('leaving');
       const position = state.modals.indexOf(id);
       if (position >= 0) state.modals.splice(position, 1);
-      syncBackdrops();
       if (!state.modals.length) $('app').inert = false;
     }, MODAL_EXIT_MS);
     modalTimers.set(id, handle);
@@ -1055,6 +1050,7 @@
       ['f-base-file', 'f-base-dir'].forEach(function (id) {
         setSelectValue(id, value);
       });
+      updatePathPlaceholders();
     }
     await call('set_argument', operation.group, operation.index, key, value);
     markDirty();

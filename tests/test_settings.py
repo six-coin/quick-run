@@ -26,7 +26,11 @@ def _operation(display: str, keywords: str = "k", **arguments):
         display=display,
         type="file",
         keywords=keywords,
-        arguments={"path": arguments.get("path", "p"), "no_window": False},
+        arguments={
+            "path": arguments.get("path", "p"),
+            "base": arguments.get("base", "program"),
+            "no_window": False,
+        },
     )
 
 
@@ -43,7 +47,7 @@ def test_load_groups_from_root_array(tmp_path):
                         "display": "A",
                         "type": "file",
                         "keywords": "a",
-                        "arguments": {"path": "x"},
+                        "arguments": {"path": "x", "base": "program"},
                     }
                 ],
             },
@@ -55,7 +59,7 @@ def test_load_groups_from_root_array(tmp_path):
                         "display": "B",
                         "type": "dir",
                         "keywords": "b",
-                        "arguments": {"dir": "y"},
+                        "arguments": {"dir": "y", "base": "absolute"},
                     }
                 ],
             },
@@ -252,8 +256,23 @@ def test_normalize_paths_and_depth():
         keywords="d",
     )
     folder.normalize()
-    assert folder.arguments["dir"] == r"D:\x"
+    assert folder.arguments["dir"] == "D:\\x\\"
     assert folder.arguments["explore_depth"] == 5
+
+
+def test_folder_path_gets_a_trailing_backslash_on_save():
+    """文件夹路径保存后一定以 \\ 结尾，多段路径逐段补。"""
+    folder = Operation(
+        type="dir",
+        arguments={"dir": "E:/data|E:\\other\\", "base": "absolute"},
+        keywords="d",
+    )
+    folder.normalize()
+    assert folder.arguments["dir"] == "E:\\data\\|E:\\other\\"
+
+    empty = Operation(type="dir", arguments={"dir": "  ", "base": "absolute"}, keywords="d")
+    empty.normalize()
+    assert empty.arguments["dir"] == ""
 
 
 def test_validation_reports_group_and_index():
@@ -269,33 +288,118 @@ def test_validation_reports_group_and_index():
     groups = [
         OperationGroup(
             name="一",
-            operations=[Operation(display="A", keywords="k", arguments={"path": ""})],
+            operations=[
+                Operation(display="A", keywords="k", arguments={"path": "", "base": "program"})
+            ],
         )
     ]
     assert validate_groups(groups) == FieldError(0, 0, "path")
 
 
-def test_reading_an_operation_fills_and_repairs_the_path_base():
-    """旧配置没有 base，手改写错的 base 在读取时就收敛成默认值。"""
+def test_validation_rejects_a_missing_or_unknown_path_base():
+    cases = ({"path": "a.bat"}, {"path": "a.bat", "base": ""}, {"path": "a.bat", "base": "home"})
+    for arguments in cases:
+        groups = [
+            OperationGroup(
+                name="一",
+                operations=[Operation(display="A", keywords="k", arguments=arguments)],
+            )
+        ]
+        assert validate_groups(groups) == FieldError(0, 0, "base")
+
+
+def test_loading_an_operation_without_a_path_base_is_a_config_error(tmp_path):
+    """没写 base 的条目不再兜底，直接报配置错误。"""
+    target = _write(
+        tmp_path,
+        [
+            {
+                "name": "G",
+                "operations": [
+                    {
+                        "display": "A",
+                        "type": "file",
+                        "keywords": "a",
+                        "arguments": {"path": "x"},
+                    }
+                ],
+            }
+        ],
+    )
+
+    with pytest.raises(ConfigError) as error:
+        settings.load_groups(target)
+    assert "G" in str(error.value)
+    assert "base" in str(error.value)
+
+
+def test_loading_an_operation_with_an_unknown_path_base_is_a_config_error(tmp_path):
+    target = _write(
+        tmp_path,
+        [
+            {
+                "name": "G",
+                "operations": [
+                    {
+                        "display": "A",
+                        "type": "dir",
+                        "keywords": "a",
+                        "arguments": {"dir": "x", "base": "home"},
+                    }
+                ],
+            }
+        ],
+    )
+
+    with pytest.raises(ConfigError) as error:
+        settings.load_groups(target)
+    assert "home" in str(error.value)
+
+
+def test_operations_without_a_path_base_type_are_not_checked(tmp_path):
+    """url / cmd / debug 不需要路径基准，旧文件照常读。"""
+    target = _write(
+        tmp_path,
+        [
+            {
+                "name": "G",
+                "operations": [
+                    {
+                        "display": "A",
+                        "type": "url",
+                        "keywords": "a",
+                        "arguments": {"url": "https://example.com"},
+                    }
+                ],
+            }
+        ],
+    )
+
+    groups = settings.load_groups(target)
+    assert groups[0].operations[0].arguments["url"] == "https://example.com"
+
+
+def test_reading_an_operation_keeps_the_path_base_verbatim():
+    """读取不补 base、也不改写它的值，合法性交给 settings 层判断。"""
     missing = Operation.from_dict(
         {"display": "A", "type": "file", "keywords": "a", "arguments": {"path": "a.bat"}}
     )
-    assert missing.arguments["base"] == "program"
+    assert "base" not in missing.arguments
 
-    stale = Operation.from_dict(
+    given = Operation.from_dict(
         {
             "display": "B",
             "type": "dir",
             "keywords": "b",
-            "arguments": {"dir": "custom", "base": "home"},
+            "arguments": {"dir": "custom", "base": "  DATA "},
         }
     )
-    assert stale.arguments["base"] == "program"
+    assert given.arguments["base"] == "DATA"
 
 
-def test_normalize_repairs_an_unknown_path_base():
+def test_normalize_lowercases_the_path_base():
     operation = Operation(
-        type="file", arguments={"path": "a.bat", "base": "nonsense"}, keywords="a"
+        type="file", arguments={"path": "a.bat", "base": " PROGRAM "}, keywords="a"
     )
     operation.normalize()
 

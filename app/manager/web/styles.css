@@ -1163,11 +1163,7 @@ input.invalid {
   animation: fade-out 0.16s ease forwards;
 }
 
-/* 叠在别的弹窗上面那层不重复画遮罩：遮罩是半透明的，两层叠起来会黑得看不见底下的内容。 */
-.modal.no-backdrop {
-  background: transparent;
-}
-
+/* 叠着开时每层都画自己的遮罩，所以第二层看起来比第一层更暗——层次感靠的就是这个。 */
 .modal.leaving .modal-card {
   animation: card-out 0.16s var(--ease) forwards;
 }

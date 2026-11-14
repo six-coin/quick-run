@@ -66,6 +66,9 @@ REQUIRED_ARGUMENT: dict[str, str] = {
     OperationType.CMD: "command",
 }
 
+#: 需要「路径基准」的类型。基准必须由配置显式给出，不提供默认值。
+PATH_BASE_TYPES: tuple[str, ...] = (OperationType.FILE, OperationType.DIR)
+
 
 def type_label(op_type: str) -> str:
     """运行方式在界面上的名字。"""
@@ -166,11 +169,13 @@ class Operation:
         raw_args = data.get("arguments")
         arguments = dict(raw_args) if isinstance(raw_args, dict) else {}
         # 补齐文件里缺的键，让下游可以放心取值；未知的键原样保留。
+        # ``base`` 不补：它必须由配置显式写出，缺了由 settings 层报配置错误。
         for key, value in default_arguments(op_type).items():
+            if key == "base":
+                continue
             arguments.setdefault(key, value)
-        # 手改过的、旧版本留下的基准值在读取时就收敛掉，界面不会显示认不出的选项。
         if "base" in arguments:
-            arguments["base"] = paths.normalize_path_base(arguments["base"])
+            arguments["base"] = str(arguments["base"] or "").strip()
         return cls(
             display=str(data.get("display") or ""),
             type=op_type,
@@ -205,12 +210,15 @@ class Operation:
         old_type = self.type
         old_args = self.arguments
         new_args = default_arguments(new_type)
+        base = str(old_args.get("base", "")).strip().lower()
         if new_type == OperationType.FILE and old_type == OperationType.DIR:
             new_args["path"] = old_args.get("dir", "")
-            new_args["base"] = paths.normalize_path_base(old_args.get("base"))
+            if base in paths.PATH_BASE_VALUES:
+                new_args["base"] = base
         elif new_type == OperationType.DIR and old_type == OperationType.FILE:
             new_args["dir"] = old_args.get("path", "")
-            new_args["base"] = paths.normalize_path_base(old_args.get("base"))
+            if base in paths.PATH_BASE_VALUES:
+                new_args["base"] = base
         self.type = new_type
         self.arguments = new_args
 
@@ -222,11 +230,11 @@ class Operation:
 
         if self.type == OperationType.FILE:
             args["path"] = str(args.get("path", "")).strip().strip('"').replace("/", "\\")
-            args["base"] = paths.normalize_path_base(args.get("base"))
+            args["base"] = str(args.get("base", "")).strip().lower()
             args["no_window"] = bool(args.get("no_window", False))
         elif self.type == OperationType.DIR:
-            args["dir"] = str(args.get("dir", "")).strip().strip('"').replace("/", "\\")
-            args["base"] = paths.normalize_path_base(args.get("base"))
+            args["dir"] = normalize_dir_path(str(args.get("dir", "")))
+            args["base"] = str(args.get("base", "")).strip().lower()
             args["allow_explore"] = bool(args.get("allow_explore", True))
             args["explore_depth"] = _clamp_depth(args.get("explore_depth", 0))
         elif self.type == OperationType.URL:
@@ -242,6 +250,10 @@ class Operation:
             return "type"
         if not sanitize_keywords(self.keywords):
             return "keywords"
+        if self.type in PATH_BASE_TYPES:
+            base = str(self.arguments.get("base", "")).strip().lower()
+            if base not in paths.PATH_BASE_VALUES:
+                return "base"
         required = REQUIRED_ARGUMENT.get(self.type)
         if required and not str(self.arguments.get(required, "")).strip():
             return required
@@ -260,6 +272,23 @@ def _clamp_depth(value: Any) -> int:
     except (TypeError, ValueError):
         return 0
     return max(0, min(depth, MAX_EXPLORE_DEPTH))
+
+
+def normalize_dir_path(raw: str) -> str:
+    """整理文件夹路径：去引号、统一反斜杠，并给每一段补上结尾的 ``\\``。
+
+    文件夹路径保存后一眼能看出是目录（``E:\\data`` → ``E:\\data\\``）；
+    多个路径用 ``|`` 分隔时逐段处理，空段丢掉。
+    """
+    parts: list[str] = []
+    for chunk in str(raw or "").strip().strip('"').replace("/", "\\").split("|"):
+        text = chunk.strip()
+        if not text:
+            continue
+        if not text.endswith("\\"):
+            text += "\\"
+        parts.append(text)
+    return "|".join(parts)
 
 
 def validate_groups(groups: list[OperationGroup]) -> FieldError | None:

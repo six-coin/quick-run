@@ -43,8 +43,8 @@ class PathBase:
 #: 下拉框里的显示顺序。
 PATH_BASE_VALUES: tuple[str, ...] = (PathBase.DATA, PathBase.PROGRAM, PathBase.ABSOLUTE)
 
-#: 没写这个参数时的默认基准。程序目录里放的是 .bat / 脚本，相对路径多半指它。
-DEFAULT_PATH_BASE = PathBase.PROGRAM
+#: 没写这个参数时的默认基准。绝对路径最不容易猜错：写全了就一定指向那个文件。
+DEFAULT_PATH_BASE = PathBase.ABSOLUTE
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROGRAM_DIR = PACKAGE_DIR.parent

@@ -143,6 +143,16 @@ File and folder operations each have a **path base** dropdown that decides how t
 
 All three only matter when the path is **not** absolute: a full path such as `D:\Tools\x.exe` points at the same file whichever base you pick. A file path may contain several entries separated by `|`; all of them open at once.
 
+Switching the base also changes the grey example text inside the path box, so you can copy the shape of the example:
+
+| Base | File path example | Folder path example |
+|---|---|---|
+| Absolute path | `E:\data\example.json` | `E:\data\` |
+| Data folder | `custom\example.bat` | `custom\` |
+| Program folder | `manager.bat` | `docs\` |
+
+Folder paths get a trailing `\` when saved (`E:\data` is stored as `E:\data\`).
+
 Whenever the launcher runs an operation, the working directory is the program folder — never the folder of the target file.
 
 ### 4.3 Match keywords
@@ -252,7 +262,7 @@ The root is the group array:
 ]
 ```
 
-`base` is the path base: `data` (data folder), `program` (program folder) or `absolute`. Configs written before this key existed are read as `program`.
+`base` is the path base: `data` (data folder), `program` (program folder) or `absolute`. The key is **required**: a missing value, an empty string or anything else is reported as a config error naming the offending operation.
 
 See [4.2](#42-operation-types) and [4.3](#43-match-keywords) for the fields. After editing by hand, restart the launcher; the manager re-reads the file every time it opens.
 

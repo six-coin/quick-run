@@ -25,6 +25,7 @@ from app import i18n, paths
 from app.errors import ConfigError
 from app.models import (
     MAX_EXPLORE_DEPTH,
+    PATH_BASE_TYPES,
     Operation,
     OperationGroup,
     flatten_groups,
@@ -41,8 +42,8 @@ DEFAULT_MAX_ENTRIES = 100
 
 #: 淡入、淡出时长的取值范围与默认值（毫秒）。0 表示不做动画。
 ANIMATION_RANGE = (0, 1000)
-DEFAULT_ANIMATION_IN_MS = 150
-DEFAULT_ANIMATION_OUT_MS = 150
+DEFAULT_ANIMATION_IN_MS = 200
+DEFAULT_ANIMATION_OUT_MS = 100
 
 
 @dataclass(frozen=True)
@@ -286,8 +287,36 @@ def _parse_operations(items: list[Any], group_name: str) -> list[Operation]:
                     fields=fields,
                 )
             )
-        operations.append(Operation.from_dict(item))
+        operation = Operation.from_dict(item)
+        _require_path_base(operation, group_name, index)
+        operations.append(operation)
     return operations
+
+
+def _require_path_base(operation: Operation, group_name: str, index: int) -> None:
+    """文件和文件夹必须写明路径基准。
+
+    这里刻意不给默认值：写全路径还是按某个文件夹补全，只有配置说了才算，
+    猜错一次就是打开错的文件。缺了或者写错都当成配置损坏，启动时直接报出来。
+    """
+    if operation.type not in PATH_BASE_TYPES:
+        return
+    base = str(operation.arguments.get("base", "")).strip()
+    values = i18n.list_separator().join(paths.PATH_BASE_VALUES)
+    if not base:
+        raise ConfigError(
+            i18n.t("config.op_missing_base", name=group_name, index=index + 1, values=values)
+        )
+    if base.lower() not in paths.PATH_BASE_VALUES:
+        raise ConfigError(
+            i18n.t(
+                "config.op_bad_base",
+                name=group_name,
+                index=index + 1,
+                value=base,
+                values=values,
+            )
+        )
 
 
 def load_settings() -> AppSettings:

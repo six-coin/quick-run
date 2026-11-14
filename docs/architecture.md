@@ -273,7 +273,7 @@ closing 回调（UI 线程）
 | 本地目录 | `logs/`、`locks/`、`data-dir.txt` | `%LOCALAPPDATA%\six-coin\quick-run` |
 | 临时目录 | 可随时丢弃的中间文件 | `%TEMP%\six-coin\quick-run` |
 
-- 配置里的相对路径按每条操作自己的 `base` 解析：`data`（数据目录）、`program`（程序目录，默认）、`absolute`（不补全）。解析只发生在执行时，与进程 cwd 无关；换盘符不会失效。
+- 配置里的相对路径按每条操作自己的 `base` 解析：`data`（数据目录）、`program`（程序目录）、`absolute`（绝对路径）。`base` 没有默认值，缺了或写错在读取时抛 `ConfigError`。解析只发生在执行时，与进程 cwd 无关；换盘符不会失效。
 - 数据目录可在设置里改，指针写在本地目录的 `data-dir.txt`，重启后生效。
 - 数据目录的落点恒以项目代号结尾（`D://Data` → `D://Data//quick-run`），`paths.normalize_data_dir()` 负责补齐；换目录时先写 `data-dir.pending`，下次启动把旧内容搬过去再改指针。
 - 启动子进程时，工作目录一律是程序目录：`subprocess.Popen(..., cwd=PROGRAM_DIR)`、`os.startfile(path, cwd=PROGRAM_DIR)`、`ShellExecuteW(..., lpDirectory=...)`。目标文件在哪个目录与 cwd 无关，路径靠 `base` 补全。

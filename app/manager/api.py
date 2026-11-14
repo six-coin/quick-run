@@ -573,7 +573,7 @@ class ManagerApi:
             ],
             "field_labels": {
                 name: field_label(name)
-                for name in ("display", "type", "keywords", "path", "dir", "url", "command")
+                for name in ("display", "type", "keywords", "base", "path", "dir", "url", "command")
             },
             "language": self._config.language,
             "languages": [
