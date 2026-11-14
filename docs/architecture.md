@@ -37,6 +37,7 @@ app/
 ├─ bootstrap.py              迁移、首次运行、重启、提示框
 ├─ models.py                 领域模型：Operation / OperationGroup / 字段校验
 ├─ settings.py               配置读写与校验
+├─ prompts.py                内置提示词（配置层与服务层共用）
 ├─ i18n.py                   文案查表
 ├─ logging_setup.py          loguru 初始化与致命错误处理
 ├─ locales/                  zh-CN.json / en-US.json（文件名即语言代码）
@@ -105,6 +106,7 @@ app/
 | `settings` | 读写两个 JSON、校验结构、夹取数值范围 | 不缓存，不持有界面状态 |
 | `models` | 数据结构、类型常量、字段校验、写盘前归一化 | 不读写文件 |
 | `i18n` | 扫描语言目录、按语言查表、填充占位符 | 不关心调用者是谁 |
+| `prompts` | 内置系统提示词常量 | 不读配置、不联网 |
 | `core.matching` | 字符串归一化与拼音 | 不做 I/O |
 | `core.catalog` | 前缀匹配、找可浏览的文件夹操作 | 不执行操作 |
 | `core.navigation` | 解析浏览语法、逐层列目录 | 不打开任何东西 |

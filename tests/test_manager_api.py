@@ -97,6 +97,53 @@ def test_update_settings_clamps_the_animation_durations(monkeypatch):
     assert payload["animation_out_ms"] == 80
 
 
+def test_reset_settings_clears_the_credentials(monkeypatch):
+    api = make_api(monkeypatch, [make_group("A", 1)])
+    api.update_settings(
+        {"translate_appid": "id", "translate_secret": "secret", "ai_api_key": "key"}
+    )
+
+    api.reset_settings()
+
+    settings = api.get_settings()
+    assert settings["translate_appid"] == ""
+    assert settings["translate_secret"] == ""
+    assert settings["ai_api_key"] == ""
+
+
+def test_reset_settings_can_keep_the_credentials(monkeypatch):
+    """「保留隐私信息」只留下凭据，其余设置照常恢复默认。"""
+    api = make_api(monkeypatch, [make_group("A", 1)])
+    api.update_settings(
+        {
+            "translate_appid": "id",
+            "translate_secret": "secret",
+            "ai_api_key": "key",
+            "ai_prompt": "自定义提示词",
+            "max_entries": 321,
+        }
+    )
+
+    api.reset_settings(keep_private=True)
+
+    settings = api.get_settings()
+    assert settings["translate_appid"] == "id"
+    assert settings["translate_secret"] == "secret"
+    assert settings["ai_api_key"] == "key"
+    assert settings["ai_prompt"] == settings["default_ai_prompt"]
+    assert settings["max_entries"] != 321
+
+
+def test_update_settings_stores_the_ai_prompt(monkeypatch):
+    api = make_api(monkeypatch, [make_group("A", 1)])
+
+    api.update_settings({"ai_prompt": "  只回答两个字  "})
+    assert api.get_settings()["ai_prompt"] == "只回答两个字"
+
+    api.update_settings({"ai_prompt": ""})
+    assert api.get_settings()["ai_prompt"] == api.get_settings()["default_ai_prompt"]
+
+
 def test_answer_close_confirm_releases_the_window(monkeypatch):
     api = make_api(monkeypatch, [make_group("A", 1)])
 

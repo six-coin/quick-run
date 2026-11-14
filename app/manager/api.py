@@ -102,6 +102,8 @@ class ManagerApi:
             "translate_appid": self._config.translate_appid,
             "translate_secret": self._config.translate_secret,
             "ai_api_key": self._config.ai_api_key,
+            "ai_prompt": self._config.ai_prompt,
+            "default_ai_prompt": settings_module.DEFAULT_SYSTEM_PROMPT,
             "version": version_module.version(),
             "data_dir": str(paths.DATA_DIR),
             "data_dir_next": str(paths.pending_data_dir() or ""),
@@ -315,6 +317,8 @@ class ManagerApi:
             self._config.translate_secret = str(patch["translate_secret"] or "").strip()
         if "ai_api_key" in patch:
             self._config.ai_api_key = str(patch["ai_api_key"] or "").strip()
+        if "ai_prompt" in patch:
+            self._config.ai_prompt = settings_module.prompt_or_default(patch["ai_prompt"])
         if "theme" in patch:
             self._config.theme = normalize_theme(patch["theme"])
 
@@ -391,11 +395,20 @@ class ManagerApi:
             text = ""
         return {"language": language, "markdown": text}
 
-    def reset_settings(self) -> dict[str, Any]:
-        """恢复出厂设置。语言与外观一起重置，操作列表不受影响。"""
+    def reset_settings(self, keep_private: bool = False) -> dict[str, Any]:
+        """恢复出厂设置。语言与外观一起重置，操作列表不受影响。
+
+        ``keep_private`` 为真时保留翻译与查词的凭据：这些是要去别处重新申请
+        的东西，误删一次很麻烦，所以重置前可以让用户单独留下它们。
+        """
+        previous = self._config
         self._config = settings_module.AppConfig(
             theme=system_theme(), language=i18n.initial_language()
         )
+        if keep_private:
+            self._config.translate_appid = previous.translate_appid
+            self._config.translate_secret = previous.translate_secret
+            self._config.ai_api_key = previous.ai_api_key
         self._persist_config()
         i18n.set_language(self._config.language)
         self._retitle()

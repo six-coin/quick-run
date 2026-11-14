@@ -370,6 +370,16 @@
       </section>
 
       <section class="settings-section">
+        <h3 data-i18n="settings.ai_prompt_section">AI 查词提示词</h3>
+        <div class="field">
+          <label for="set-prompt" data-i18n="settings.ai_prompt">系统提示词</label>
+          <textarea id="set-prompt" rows="7" spellcheck="false"></textarea>
+          <p class="hint" data-i18n="settings.ai_prompt_hint"></p>
+        </div>
+        <button type="button" class="btn soft" id="btn-prompt-reset" data-i18n="settings.ai_prompt_reset">恢复默认提示词</button>
+      </section>
+
+      <section class="settings-section">
         <h3 data-i18n="about.data_dir">数据目录</h3>
         <div class="inline">
           <input type="text" id="about-data-dir" spellcheck="false" autocomplete="off">

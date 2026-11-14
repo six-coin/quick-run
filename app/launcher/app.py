@@ -91,7 +91,9 @@ def _run() -> None:
         if settings.translate is not None
         else None
     )
-    definition = GlmDefinition(settings.ai_api_key) if settings.ai_api_key else None
+    definition = (
+        GlmDefinition(settings.ai_api_key, settings.ai_prompt) if settings.ai_api_key else None
+    )
 
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)

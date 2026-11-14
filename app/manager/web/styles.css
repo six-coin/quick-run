@@ -944,6 +944,28 @@ input[type="password"]:focus {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
+/* 多行文本（AI 提示词）：和单行输入框同一套外观，可以纵向拉高。 */
+textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.65;
+  resize: vertical;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
 /* 原生下拉框（首次启动的语言选择）：和文本框同一套外观，不留给系统默认样式。 */
 select.input {
   width: 100%;
@@ -1496,6 +1518,11 @@ input.invalid {
   flex: none;
 }
 
+/* 区块里的独立按钮（如「恢复默认提示词」）按内容宽度靠左，别拉满整行。 */
+.settings-section > .btn {
+  align-self: flex-start;
+}
+
 .seg {
   display: inline-flex;
   align-self: flex-start;
@@ -1628,6 +1655,11 @@ input.invalid {
   color: var(--text);
   font-size: 13.5px;
   line-height: 1.75;
+}
+
+/* 重置前提醒「凭据会一起没」的那一句，用警告色和正文区分开。 */
+#modal-sheet .modal-body > p.warn {
+  color: var(--amber-text);
 }
 
 #modal-sheet .modal-actions {

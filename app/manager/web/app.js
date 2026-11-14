@@ -1150,6 +1150,7 @@
     $('set-appid').value = settings.translate_appid || '';
     $('set-secret').value = settings.translate_secret || '';
     $('set-ai').value = settings.ai_api_key || '';
+    $('set-prompt').value = settings.ai_prompt || '';
     renderAbout(settings);
     renderSettingsHints();
   }
@@ -1466,6 +1467,7 @@
 
     $('btn-about-readme').addEventListener('click', openAboutReadme);
     $('btn-about-reset').addEventListener('click', confirmResetSettings);
+    $('btn-prompt-reset').addEventListener('click', restoreDefaultPrompt);
     $('btn-about-data-dir').addEventListener('click', changeDataDir);
     $('btn-about-data-reset').addEventListener('click', resetDataDir);
     $('about-data-dir').addEventListener('keydown', function (event) {
@@ -1483,6 +1485,7 @@
     bindSettingInput('set-appid', 'translate_appid', false);
     bindSettingInput('set-secret', 'translate_secret', false);
     bindSettingInput('set-ai', 'ai_api_key', false);
+    bindSettingInput('set-prompt', 'ai_prompt', false);
 
     document.querySelectorAll('.secret-toggle').forEach(function (button) {
       button.addEventListener('click', function () {
@@ -1901,25 +1904,55 @@
     });
   }
 
+  /** 设置里至少填了一项凭据（翻译或查词），重置时会一起被清掉。 */
+  function hasPrivateInfo(settings) {
+    return Boolean(
+      String(settings.translate_appid || '').trim() ||
+        String(settings.translate_secret || '').trim() ||
+        String(settings.ai_api_key || '').trim()
+    );
+  }
+
+  async function restoreDefaultPrompt() {
+    const settings = state.settings;
+    if (!settings || !settings.default_ai_prompt) return;
+    $('set-prompt').value = settings.default_ai_prompt;
+    settings.ai_prompt = settings.default_ai_prompt;
+    await call('update_settings', { ai_prompt: settings.default_ai_prompt });
+    toast(T('settings.ai_prompt_restored'), true);
+  }
+
   async function confirmResetSettings() {
+    const settings = state.settings || {};
+    const hasPrivate = hasPrivateInfo(settings);
+
+    // 有凭据时多一条警告和一个「保留隐私信息」的出口：APP ID / API Key 得去
+    // 别处重新申请，误删一次很麻烦。
+    const actions = [{ label: T('manager.cancel'), value: 'cancel' }];
+    if (hasPrivate) actions.push({ label: T('about.reset_keep_private'), value: 'keep' });
+    actions.push({ label: T('about.reset'), value: 'ok', kind: 'danger' });
+
+    let html = '<p>' + mdEscape(T('about.reset_confirm')) + '</p>';
+    if (hasPrivate) {
+      html += '<p class="warn">' + mdEscape(T('about.reset_confirm_private')) + '</p>';
+    }
+
     const choice = await openSheet({
       title: T('about.reset'),
-      html: '<p>' + mdEscape(T('about.reset_confirm')) + '</p>',
+      html: html,
       narrow: true,
-      actions: [
-        { label: T('manager.cancel'), value: 'cancel' },
-        { label: T('about.reset'), value: 'ok', kind: 'danger' },
-      ],
+      actions: actions,
     });
-    if (choice !== 'ok') return;
-    const snapshot = await call('reset_settings');
+    if (choice !== 'ok' && choice !== 'keep') return;
+
+    const snapshot = await call('reset_settings', choice === 'keep');
     if (!snapshot) return;
     await loadStrings();
     applyStrings();
     apply(snapshot);
-    const settings = await call('get_settings');
-    if (settings) {
-      state.settings = settings;
+    const fresh = await call('get_settings');
+    if (fresh) {
+      state.settings = fresh;
       renderSettings();
     }
     if (snapshot.message) toast(snapshot.message, true);

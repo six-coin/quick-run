@@ -179,6 +179,7 @@ Click the gear at the right of the title bar:
 | Max entries per folder | Folders with more entries are not expanded, keeping the UI responsive |
 | Baidu Translate | Translation is enabled only when both `appid` and secret key are set |
 | AI definition | Enabled once an API key is filled in |
+| AI prompt | System prompt sent to the model; shapes the answer style. Clear it or press “Restore default prompt” to get the built-in one back |
 
 Below the fields there are three blocks, with no dividers between them:
 
@@ -187,6 +188,8 @@ Below the fields there are three blocks, with no dividers between them:
 - **Version**: the version of the program you are running.
 
 Secret fields are masked by default; click the eye icon to reveal them temporarily. The bottom of the panel has "Reset all settings" on the left (language and appearance go back to defaults; the operation list is untouched) and "Done" on the right.
+
+If a Baidu Translate or AI dictionary credential is filled in, the confirmation adds one warning and a "Keep credentials" button: that resets everything else and keeps the APP ID, key and API key.
 
 The settings panel only closes through "Done", the × in the corner, or `Esc`; clicking outside it does nothing. Every other dialog (manual, confirmations) closes on `Esc` or a click outside.
 
@@ -235,9 +238,11 @@ The data folder always ends with the project code: picking `D://Data` gives `D:/
   "theme": "light",
   "navigation": { "max_depth": 5, "max_entries": 100 },
   "translate": { "appid": "", "secret_key": "" },
-  "ai": { "api_key": "" }
+  "ai": { "api_key": "", "prompt": "你是一个词典助手，功能如下：…" }
 }
 ```
+
+`ai.prompt` is the default system prompt for the AI dictionary; it is the same in every interface language, and an empty string means the built-in one.
 
 `language` must be a code that exists in `app/locales`; anything else falls back to `en-US`. `theme` is `light` or `dark` only; it is seeded from the system preference when the file does not exist, afterwards the file wins.
 

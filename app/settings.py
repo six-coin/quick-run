@@ -30,6 +30,7 @@ from app.models import (
     OperationGroup,
     flatten_groups,
 )
+from app.prompts import DEFAULT_SYSTEM_PROMPT
 from app.system.theme import normalize_theme, system_theme
 
 _OPERATION_KEYS = ("display", "type", "arguments", "keywords")
@@ -71,6 +72,7 @@ class AppConfig:
     translate_appid: str = ""
     translate_secret: str = ""
     ai_api_key: str = ""
+    ai_prompt: str = DEFAULT_SYSTEM_PROMPT
 
     @property
     def translate(self) -> TranslateConfig | None:
@@ -99,6 +101,7 @@ class AppConfig:
             translate_appid=str(translate.get("appid") or "").strip(),
             translate_secret=str(translate.get("secret_key") or "").strip(),
             ai_api_key=str(ai.get("api_key") or "").strip(),
+            ai_prompt=prompt_or_default(ai.get("prompt")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -117,7 +120,7 @@ class AppConfig:
                 "appid": self.translate_appid,
                 "secret_key": self.translate_secret,
             },
-            "ai": {"api_key": self.ai_api_key},
+            "ai": {"api_key": self.ai_api_key, "prompt": self.ai_prompt},
         }
 
 
@@ -141,6 +144,10 @@ class AppSettings:
     @property
     def ai_api_key(self) -> str:
         return self.config.ai_api_key
+
+    @property
+    def ai_prompt(self) -> str:
+        return self.config.ai_prompt
 
 
 def default_operations() -> list[dict[str, Any]]:
@@ -399,3 +406,9 @@ def clamp_animation(value: Any, default: int) -> int:
     except (TypeError, ValueError):
         return default
     return max(low, min(duration, high))
+
+
+def prompt_or_default(value: Any) -> str:
+    """提示词留空就回到内置那一份，避免真发一条空的 system 消息出去。"""
+    text = str(value or "").strip()
+    return text or DEFAULT_SYSTEM_PROMPT

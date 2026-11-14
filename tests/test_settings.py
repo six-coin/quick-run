@@ -166,7 +166,10 @@ def test_app_config_is_created_with_system_theme(tmp_path, monkeypatch):
     payload = json.loads(target.read_text(encoding="utf-8"))
     assert payload["theme"] == "dark"
     assert payload["language"] == "zh-CN"
-    assert payload["animation"] == {"in_ms": 150, "out_ms": 150}
+    assert payload["animation"] == {
+        "in_ms": settings.DEFAULT_ANIMATION_IN_MS,
+        "out_ms": settings.DEFAULT_ANIMATION_OUT_MS,
+    }
     assert payload["navigation"] == {"max_depth": 5, "max_entries": 100}
 
 
@@ -180,6 +183,7 @@ def test_app_config_roundtrip(tmp_path):
         translate_appid="id",
         translate_secret="key",
         ai_api_key="token",
+        ai_prompt="自定义提示词",
     )
     settings.save_app_config(config, target)
 
@@ -187,6 +191,23 @@ def test_app_config_roundtrip(tmp_path):
     assert loaded == config
     assert loaded.translate is not None
     assert loaded.translate.appid == "id"
+
+
+def test_ai_prompt_defaults_to_the_builtin_one(tmp_path):
+    target = tmp_path / "app.json"
+
+    config = settings.load_app_config(target)
+
+    assert config.ai_prompt == settings.DEFAULT_SYSTEM_PROMPT
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["ai"]["prompt"] == settings.DEFAULT_SYSTEM_PROMPT
+
+
+def test_an_empty_ai_prompt_falls_back_to_the_builtin_one(tmp_path):
+    target = tmp_path / "app.json"
+    target.write_text(json.dumps({"ai": {"prompt": "   "}}), encoding="utf-8")
+
+    assert settings.load_app_config(target).ai_prompt == settings.DEFAULT_SYSTEM_PROMPT
 
 
 def test_app_config_clamps_out_of_range_values(tmp_path):

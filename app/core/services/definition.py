@@ -6,26 +6,29 @@ import requests
 
 from app import i18n
 from app.errors import ServiceError
+from app.prompts import DEFAULT_SYSTEM_PROMPT
 
 _ENDPOINT = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 _MODEL = "GLM-4-Flash-250414"
-_SYSTEM_PROMPT = """你是一个词典助手，功能如下：
-用户输入的是中文词语、成语或俗语，请输出其不超过25个字的简短释义：
- (1) 例如用户输入“暗度陈仓”，你输出“正面迷惑对手，暗地里迂回突袭要害，最终达成目的。”；
- (2) 例如用户输入“申诉”，你输出“指当事人对处理不服，向有关部门请求重新处理。”。
-如果用户问了一个问句，那你就简短回答。"""
 
 
 class GlmDefinition:
-    def __init__(self, api_key: str, timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+        timeout: float = 15.0,
+    ) -> None:
         self._api_key = api_key
+        # 设置里清空提示词时回到内置的那一份，别真发一条空 system 消息出去。
+        self._system_prompt = (system_prompt or "").strip() or DEFAULT_SYSTEM_PROMPT
         self._timeout = timeout
 
     def lookup(self, text: str) -> str:
         body = {
             "model": _MODEL,
             "messages": [
-                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": text},
             ],
             "temperature": 0.5,
