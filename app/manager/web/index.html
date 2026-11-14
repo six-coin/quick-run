@@ -349,33 +349,36 @@
 
       <section class="settings-section">
         <h3 data-i18n="about.title">关于</h3>
-        <div class="field">
-          <label data-i18n="about.version">版本</label>
-          <div class="about-value" id="about-version"></div>
-        </div>
-        <div class="field">
-          <label data-i18n="about.data_dir">数据目录</label>
-          <div class="about-path" id="about-data-dir"></div>
-          <div class="about-actions">
-            <button type="button" class="btn ghost" id="btn-about-data-dir" data-i18n="about.data_dir_change">更改</button>
-            <button type="button" class="btn primary hidden" id="btn-about-restart" data-i18n="about.restart">立即重启</button>
+
+        <div class="about-row">
+          <div class="about-main">
+            <span class="about-label" data-i18n="about.data_dir">数据目录</span>
+            <p class="hint" id="about-data-hint"></p>
           </div>
-          <p class="hint" id="about-data-hint"></p>
+          <div class="about-control">
+            <input type="text" id="about-data-dir" spellcheck="false" autocomplete="off">
+            <button type="button" class="btn" id="btn-about-data-dir" data-i18n="about.data_dir_change">更改</button>
+            <button type="button" class="btn" id="btn-about-data-reset" data-i18n="about.data_dir_reset">重置</button>
+          </div>
         </div>
-        <div class="field">
-          <label data-i18n="about.readme">使用说明</label>
-          <button type="button" class="btn ghost" id="btn-about-readme" data-i18n="about.readme">使用说明</button>
-          <p class="hint" data-i18n="about.readme_hint"></p>
+
+        <div class="about-row">
+          <div class="about-main">
+            <span class="about-label" data-i18n="about.readme">使用说明</span>
+            <p class="hint" data-i18n="about.readme_hint"></p>
+          </div>
+          <button type="button" class="btn about-large" id="btn-about-readme" data-i18n="about.readme">使用说明</button>
         </div>
-        <div class="field">
-          <label data-i18n="about.reset">重置所有设置</label>
-          <button type="button" class="btn danger-ghost" id="btn-about-reset" data-i18n="about.reset">重置所有设置</button>
-          <p class="hint" data-i18n="about.reset_hint"></p>
+
+        <div class="about-row">
+          <span class="about-label" data-i18n="about.version">版本</span>
+          <span class="about-value" id="about-version"></span>
         </div>
       </section>
     </div>
 
-    <div class="modal-actions">
+    <div class="modal-actions split">
+      <button type="button" class="btn danger-ghost" id="btn-about-reset" data-i18n="about.reset">重置所有设置</button>
       <button type="button" class="btn primary" id="btn-settings-done" data-i18n="settings.done">完成</button>
     </div>
   </div>

@@ -1063,13 +1063,14 @@
 
   function renderAbout(settings) {
     $('about-version').textContent = settings.version || '';
-    $('about-data-dir').textContent = settings.data_dir || '';
-    $('about-data-dir').title = settings.data_dir || '';
 
-    const pending = settings.data_dir_next && settings.data_dir_next !== settings.data_dir;
-    $('btn-about-restart').classList.toggle('hidden', !pending);
-    $('about-data-hint').textContent = pending
-      ? T('about.data_dir_pending', { path: settings.data_dir_next })
+    // 输入框显示「重启后生效的落点」，没有待生效的值就是当前目录。
+    const next = settings.data_dir_next || '';
+    const input = $('about-data-dir');
+    input.value = next || settings.data_dir || '';
+    input.title = input.value;
+    $('about-data-hint').textContent = next
+      ? T('about.data_dir_pending', { path: next })
       : T('about.data_dir_hint');
   }
 
@@ -1375,11 +1376,19 @@
     $('btn-settings-done').addEventListener('click', function () {
       closeModal('modal-settings');
     });
+    $('sheet-body').addEventListener('change', function (event) {
+      if (event.target.id !== 'firstrun-language') return;
+      previewLanguage(event.target.value);
+    });
+
     $('btn-about-readme').addEventListener('click', openAboutReadme);
     $('btn-about-reset').addEventListener('click', confirmResetSettings);
     $('btn-about-data-dir').addEventListener('click', changeDataDir);
-    $('btn-about-restart').addEventListener('click', function () {
-      call('restart_app');
+    $('btn-about-data-reset').addEventListener('click', resetDataDir);
+    $('about-data-dir').addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      applyDataDir(event.target.value);
     });
     $('sheet-close').addEventListener('click', function () {
       closeSheet(null);
@@ -1579,7 +1588,7 @@
         function (action) {
           const button = document.createElement('button');
           button.type = 'button';
-          button.className = 'btn ' + (action.primary ? 'primary' : 'ghost');
+          button.className = 'btn ' + (action.kind || (action.primary ? 'primary' : 'ghost'));
           button.textContent = action.label;
           button.addEventListener('click', function () {
             closeSheet(action.value);
@@ -1589,6 +1598,9 @@
       );
 
       $('sheet-close').hidden = options.dismissible === false;
+      $('modal-sheet')
+        .querySelector('.modal-card')
+        .classList.toggle('narrow', Boolean(options.narrow));
       openModal('modal-sheet');
     });
   }
@@ -1794,9 +1806,10 @@
     const choice = await openSheet({
       title: T('about.reset'),
       html: '<p>' + mdEscape(T('about.reset_confirm')) + '</p>',
+      narrow: true,
       actions: [
         { label: T('manager.cancel'), value: 'cancel' },
-        { label: T('about.reset'), value: 'ok', primary: true },
+        { label: T('about.reset'), value: 'ok', kind: 'danger' },
       ],
     });
     if (choice !== 'ok') return;
@@ -1813,10 +1826,39 @@
     if (snapshot.message) toast(snapshot.message, true);
   }
 
+  async function applyDataDir(value) {
+    const text = String(value || '').trim();
+    if (!text) {
+      renderSettings();
+      return;
+    }
+    const snapshot = await call('set_data_dir', text);
+    if (!snapshot) return;
+    apply(snapshot);
+    const settings = await call('get_settings');
+    if (settings) {
+      state.settings = settings;
+      renderSettings();
+    }
+    if (snapshot.message) toast(snapshot.message, snapshot.ok !== false);
+  }
+
   async function changeDataDir() {
+    const settings = state.settings || {};
+    const current = String(settings.data_dir_next || settings.data_dir || '').trim();
+    const typed = $('about-data-dir').value.trim();
+    // 输入框改过就按输入的落点走，没改过才去选目录。
+    if (typed && typed !== current) {
+      await applyDataDir(typed);
+      return;
+    }
     const picked = await call('browse_dir');
     if (!picked) return;
-    const snapshot = await call('set_data_dir', picked);
+    await applyDataDir(picked);
+  }
+
+  async function resetDataDir() {
+    const snapshot = await call('reset_data_dir');
     if (!snapshot) return;
     apply(snapshot);
     const settings = await call('get_settings');
@@ -1843,18 +1885,22 @@
       })
       .join('');
 
-    const choice = await openSheet({
+    const pending = openSheet({
       title: T('firstrun.title'),
       dismissible: false,
       html:
-        '<p>' + mdEscape(T('firstrun.text')) + '</p>' +
-        '<div class="field"><label for="firstrun-language">' +
+        '<p data-i18n="firstrun.text">' + mdEscape(T('firstrun.text')) + '</p>' +
+        '<div class="field"><label for="firstrun-language" data-i18n="firstrun.title">' +
         mdEscape(T('firstrun.title')) +
         '</label><select id="firstrun-language" class="input">' +
         options +
         '</select></div>',
       actions: [{ label: T('firstrun.start'), value: 'go', primary: true }],
     });
+    // 下拉框一改就把界面切成那种语言：用户不必先点「开始使用」才能看懂界面。
+    const startButton = document.querySelector('#sheet-actions .btn');
+    if (startButton) startButton.dataset.i18n = 'firstrun.start';
+    const choice = await pending;
     if (choice !== 'go') return;
 
     const select = $('firstrun-language');
@@ -1865,6 +1911,18 @@
       apply(snapshot);
     }
     await showFirstRunReadme(data.redirected_from);
+  }
+
+  /* 首次运行的语言下拉框：只换内存里的语言，不落盘，界面立刻跟着变。 */
+  async function previewLanguage(code) {
+    const data = await call('preview_language', code);
+    if (!data) return;
+    await loadStrings();
+    applyStrings();
+    const title = $('sheet-title');
+    if (title) title.textContent = T('firstrun.title');
+    const start = document.querySelector('#sheet-actions .btn');
+    if (start) start.textContent = T('firstrun.start');
   }
 
   async function showFirstRunReadme(redirected) {

@@ -43,7 +43,7 @@ To start the launcher at login, put a shortcut to `main.bat` in
 
 > The launcher is a background process. Double-clicking `main.bat` shows nothing on screen — that is expected. Press `Alt+Space` to bring it up.
 
-On the **first run**, whichever entry point you double-click opens the manager instead: pick the interface language (the Windows UI language by default, English when there is no matching locale), then read the manual. If you started `main.bat`, one extra note explains that the manager is what just opened. Close it and start your original entry point again when you are done.
+On the **first run**, whichever entry point you double-click opens the manager instead: pick the interface language (the Windows UI language by default, English when there is no matching locale; the whole dialog switches the moment you change it), then read the manual. If you started `main.bat`, one extra note explains that the manager is what just opened. Close it and start your original entry point again when you are done.
 
 Both entry points are single-instance: starting `main.bat` twice shows "already running"; opening the manager again brings the existing window to the front.
 
@@ -160,7 +160,7 @@ Click the gear at the right of the title bar:
 | Baidu Translate | Translation is enabled only when both `appid` and secret key are set |
 | AI definition | Enabled once an API key is filled in |
 
-The last section of Settings is "About": version, data folder (changeable; restart to apply, with a "Restart now" button), user manual and reset all settings. Reset also restores language and appearance; the operation list is untouched.
+The last section of Settings is "About": data folder (an input box with "Change" and "Reset"), user manual and version. A change appends `quick-run` automatically and applies after a restart, moving the old contents over. Reset also restores language and appearance; the operation list is untouched.
 
 Secret fields are masked by default; click the eye icon to reveal them temporarily.
 
@@ -199,7 +199,7 @@ The program folder holds code and `setup.bat` only; runtime files live in system
 %TEMP%\six-coin\quick-run\              temp folder, safe to delete
 ```
 
-The old `config/`, `custom/` and `logs/` folders left in the program directory are moved to the locations above the first time the new version starts. Delete `<data>\app.json` and the next launch asks for a language again and regenerates the defaults.
+The data folder always ends with the project code: picking `D://Data` gives `D://Data//quick-run`. On a change the old contents move there on the next start; existing files in the target are never overwritten. Delete `<data>\app.json` and the next launch asks for a language again and regenerates the defaults.
 
 ### 5.1 app.json
 

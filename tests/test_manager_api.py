@@ -133,3 +133,22 @@ def test_set_language_retitles_the_window(monkeypatch):
     api.set_language("zh-CN")
 
     assert window.titles == ["Quick Run Manager", "快捷运行操作管理器"]
+
+
+def test_preview_language_does_not_save_config(monkeypatch):
+    """首次运行的语言下拉框只换内存：写了 app.json 就等于跳过了首次运行。"""
+    config = api_module.settings_module.AppConfig()
+    config.language = "zh-CN"
+    saved = []
+    monkeypatch.setattr(api_module.settings_module, "load_app_config", lambda path=None: config)
+    monkeypatch.setattr(api_module.settings_module, "load_groups", lambda path=None: [])
+    monkeypatch.setattr(api_module.settings_module, "save_groups", lambda *a, **k: None)
+    monkeypatch.setattr(
+        api_module.settings_module, "save_app_config", lambda *a, **k: saved.append(1)
+    )
+    api = api_module.ManagerApi()
+
+    result = api.preview_language("en-US")
+
+    assert result["language"] == "en-US"
+    assert saved == []

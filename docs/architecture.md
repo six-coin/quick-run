@@ -274,7 +274,7 @@ closing 回调（UI 线程）
 
 - 配置里的相对路径（如 `custom\clear_clipboard.py`）以**数据目录**为基准解析，与进程 cwd 无关；换盘符不会失效。
 - 数据目录可在设置里改，指针写在本地目录的 `data-dir.txt`，重启后生效。
-- 旧版本留在程序目录里的 `config/`、`custom/`、`logs/` 由 `paths.migrate_legacy()` 在启动最前面搬走。
+- 数据目录的落点恒以项目代号结尾（`D://Data` → `D://Data//quick-run`），`paths.normalize_data_dir()` 负责补齐；换目录时先写 `data-dir.pending`，下次启动把旧内容搬过去再改指针。
 - 启动子进程时，工作目录用参数传递：`subprocess.Popen(..., cwd=...)`、`os.startfile(path, cwd=...)`、`ShellExecuteW(..., lpDirectory=...)`。
 - 日志与配置永远写绝对路径。
 

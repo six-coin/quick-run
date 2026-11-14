@@ -12,7 +12,7 @@
 | `%LOCALAPPDATA%\six-coin\quick-run\data-dir.txt` | 数据目录指针，改目录后写这里 |
 | `%LOCALAPPDATA%\six-coin\quick-run\logs\` | 日志 |
 
-数据目录在设置页「关于」里改，**重启后生效**；只把 `app.json` 复制到新目录，`custom/` 与 `operations.json` 不自动搬。
+数据目录在设置页「关于」里改：左边输入框，右边「更改」「重置」。落点自动补上 `quick-run`，写进 `data-dir.pending`，**下次启动**把旧目录的内容搬过去再改指针；目标已有的同名文件不覆盖。
 
 ## 1. `app.json`
 

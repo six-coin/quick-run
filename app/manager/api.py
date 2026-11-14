@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import shutil
 import threading
 from typing import Any
 
@@ -48,7 +47,6 @@ class ManagerApi:
         self._dirty = False
         self._errors: list[dict[str, Any]] = []
         self._window = None
-        self._restart = False
 
         self._sel_kind = "none"
         self._sel_group = 0
@@ -62,11 +60,6 @@ class ManagerApi:
 
     def attach(self, window) -> None:
         self._window = window
-
-    @property
-    def restart_requested(self) -> bool:
-        """窗口已经关掉、进程马上要重启。"""
-        return self._restart
 
     def _retitle(self) -> None:
         """窗口标题跟着界面语言走。
@@ -110,7 +103,8 @@ class ManagerApi:
             "ai_api_key": self._config.ai_api_key,
             "version": version_module.version(),
             "data_dir": str(paths.DATA_DIR),
-            "data_dir_next": str(paths.read_data_dir()),
+            "data_dir_next": str(paths.pending_data_dir() or ""),
+            "data_dir_default": str(paths.DATA_DIR_DEFAULT),
             "languages": [
                 {"value": code, "label": label} for code, label in i18n.language_names().items()
             ],
@@ -408,34 +402,30 @@ class ManagerApi:
         state["message"] = i18n.t("about.reset_done")
         return state
 
+    def preview_language(self, code: str) -> dict[str, Any]:
+        """首次运行的语言下拉框：只换内存里的语言，不落盘。
+
+        落盘会让「第一次运行」的判据（app.json 是否存在）提前成立，用户中途
+        关掉窗口就再也看不到语言选择。
+        """
+        if code in i18n.available_languages():
+            i18n.set_language(code)
+            self._retitle()
+        return {"ok": True, "language": i18n.language(), "strings": i18n.strings()}
+
     def set_data_dir(self, raw: str) -> dict[str, Any]:
-        """改数据目录：写指针，下次启动生效。应用配置复制一份过去。"""
-        target = paths.resolve_user_path(str(raw))
-        if target == paths.DATA_DIR:
-            return self._state()
+        """记下新的数据目录：补项目代号，下次启动把文件搬过去。"""
         try:
-            target.mkdir(parents=True, exist_ok=True)
-            destination = target / paths.APP_CONFIG_PATH.name
-            if not destination.exists() and paths.APP_CONFIG_PATH.exists():
-                shutil.copy2(paths.APP_CONFIG_PATH, destination)
-            paths.write_data_dir(target)
+            target = paths.request_data_dir(str(raw), base=paths.DATA_DIR)
         except OSError as error:
             return self._state(ok=False, message=i18n.t("about.data_dir_failed", error=error))
-        return self._state(message=i18n.t("about.restart_hint"))
+        if paths.pending_data_dir() is None:
+            return self._state(message=i18n.t("about.data_dir_same"))
+        return self._state(message=i18n.t("about.data_dir_saved", path=target))
 
-    def restart_app(self) -> dict[str, Any]:
-        """关掉窗口，由入口在释放单实例锁之后拉起新进程。"""
-        self._restart = True
-        threading.Timer(0.2, self._close_window).start()
-        return {"ok": True}
-
-    def _close_window(self) -> None:
-        if self._window is None:
-            return
-        try:
-            self._window.destroy()
-        except Exception as error:  # 窗口已经关了或平台不支持
-            logger.debug("关闭窗口失败：{}", error)
+    def reset_data_dir(self) -> dict[str, Any]:
+        """把数据目录恢复成默认位置。"""
+        return self.set_data_dir(str(paths.DATA_DIR_DEFAULT))
 
     # -- 对话框 -----------------------------------------------------------
     def browse_file(self) -> str:
@@ -589,7 +579,8 @@ class ManagerApi:
             "first_run": self.first_run,
             "redirected_from": self.redirected_from,
             "data_dir": str(paths.DATA_DIR),
-            "data_dir_next": str(paths.read_data_dir()),
+            "data_dir_next": str(paths.pending_data_dir() or ""),
+            "data_dir_default": str(paths.DATA_DIR_DEFAULT),
             "navigation": {
                 "max_depth": self._config.max_depth,
                 "max_entries": self._config.max_entries,

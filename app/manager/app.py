@@ -31,14 +31,10 @@ def main() -> None:
             bootstrap.info(i18n.t("manager.already_running"), i18n.t("manager.title"))
         return
 
-    api: ManagerApi | None = None
     try:
-        api = _run(warnings)
+        _run(warnings)
     finally:
         lock.release()
-
-    if api is not None and api.restart_requested:
-        bootstrap.restart_manager()
 
 
 def _run(warnings: list[str]) -> ManagerApi | None:
